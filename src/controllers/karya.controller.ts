@@ -49,9 +49,12 @@ export function karyaAdminController(db: Db) {
   // GET /admin/karya — my works + create form
   app.get("/karya", requireAuth(db), (c) => {
     const userId = c.get("userId") as string;
-    const items = karya.byUser(userId).map((k) => ({
+    const rows = karya.byUser(userId);
+    // One batch query for all part counts instead of one per karya (N+1).
+    const partsByKarya = karya.partsForMany(rows.map((k) => String(k.id)));
+    const items = rows.map((k) => ({
       ...k,
-      part_count: karya.parts(String(k.id)).length,
+      part_count: (partsByKarya[String(k.id)] ?? []).length,
     }));
     return view(c, "admin/karya/index", { karya: items, kategoriList: KATEGORI_LIST });
   });
@@ -61,7 +64,10 @@ export function karyaAdminController(db: Db) {
     const body = await c.req.parseBody();
     const judul = String(body.judul ?? "").trim();
     const deskripsi = String(body.deskripsi ?? "").trim();
-    const kategori = String(body.kategori ?? "lainnya").trim();
+    let kategori = String(body.kategori ?? "lainnya").trim();
+    if (!KATEGORI_LIST.includes(kategori)) {
+      kategori = "lainnya";
+    }
     if (!judul) {
       flashError(c, "Title is required.");
       return redirect(c, "/admin/karya");

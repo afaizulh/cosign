@@ -8,6 +8,13 @@ export type PublicUser = {
   bio: string | null;
 };
 
+/**
+ * Precomputed argon2 hash of a random password, used only to keep
+ * `verifyPassword` timing constant when the username does not exist.
+ */
+const DUMMY_HASH =
+  "$argon2id$v=19$m=65536,t=2,p=1$wlQas72+XrrSOA60slXZnFgVs9NupG2G8D0Hn9AAogw$8yFIZ3q5XU+vLlU7CbQINxFqH1TyCD7hEW+dB1irSP8";
+
 /** Model: users table — app auth. */
 export class UserModel {
   constructor(private db: Database) {}
@@ -55,8 +62,10 @@ export class UserModel {
     password: string
   ): Promise<string | null> {
     const row = this.findByUsername(username);
-    if (!row) return null;
-    const ok = await Bun.password.verify(password, row.password_hash);
-    return ok ? row.id : null;
+    // Always run a verify (even for unknown users) against a dummy hash so the
+    // response time doesn't reveal whether the username exists (timing attack).
+    const hash = row?.password_hash ?? DUMMY_HASH;
+    const ok = await Bun.password.verify(password, hash);
+    return row && ok ? row.id : null;
   }
 }

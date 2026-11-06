@@ -81,6 +81,30 @@ describe("KaryaModel", () => {
     expect(karya.findById(id)).toBeNull();
   });
 
+  test("partsForMany + likeCountsForMany match per-item results (N+1 fix)", async () => {
+    const db = createTestDb();
+    const { userId, karya } = await seed(db);
+
+    const a = karya.create({ userId, judul: "A", deskripsi: "", kategori: "desain" });
+    const b = karya.create({ userId, judul: "B", deskripsi: "", kategori: "motion" });
+    karya.addPart({ karyaId: a, kategori: "kepala", mediaPath: "uploads/a.png", mediaType: "image/png" });
+    karya.addPart({ karyaId: b, kategori: "badan", mediaPath: "uploads/b.png", mediaType: "image/png" });
+    karya.toggleLike(a, "u1");
+    karya.toggleLike(a, "u2");
+
+    const parts = karya.partsForMany([a, b]);
+    expect(parts[a]).toHaveLength(1);
+    expect(parts[b]).toHaveLength(1);
+    expect(parts[a][0].media_path).toBe("uploads/a.png");
+
+    const likes = karya.likeCountsForMany([a, b]);
+    expect(likes[a]).toBe(2);
+    expect(likes[b] ?? 0).toBe(0);
+
+    expect(karya.partsForMany([])).toEqual({});
+    expect(karya.likeCountsForMany([])).toEqual({});
+  });
+
   test("toggleLike: like → unlike, likeCount", async () => {
     const db = createTestDb();
     const { karya } = await seed(db);

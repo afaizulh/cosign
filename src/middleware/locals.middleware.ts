@@ -10,6 +10,11 @@ import { consumeFlash, type Flash } from "../view";
  */
 export function injectLocals(db: Db) {
   return async (c: Context, next: Next) => {
+    // Skip DB work for static asset requests — they never render a view.
+    const p = c.req.path;
+    if (p.startsWith("/uploads/") || p === "/customizer.js" || p === "/style.css") {
+      return next();
+    }
     let user: PublicUser | null = null;
     const userId = getUserId(c, db);
     if (userId && db.sqlite) {

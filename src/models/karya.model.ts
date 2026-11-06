@@ -131,4 +131,34 @@ export class KaryaModel {
       .get(karyaId) as { n: number };
     return row.n;
   }
+
+  // --- batch queries (avoid N+1 on list pages) ---
+
+  /** Parts for many karya in one query, grouped by karya_id. */
+  partsForMany(karyaIds: string[]): Record<string, KaryaPart[]> {
+    const map: Record<string, KaryaPart[]> = {};
+    if (karyaIds.length === 0) return map;
+    const placeholders = karyaIds.map(() => "?").join(",");
+    const rows = this.db
+      .query(
+        `SELECT * FROM karya_parts WHERE karya_id IN (${placeholders}) ORDER BY kategori, created_at DESC, id DESC`
+      )
+      .all(...karyaIds) as KaryaPart[];
+    for (const p of rows) (map[p.karya_id] ??= []).push(p);
+    return map;
+  }
+
+  /** Like counts for many karya in one query, keyed by karya_id. */
+  likeCountsForMany(karyaIds: string[]): Record<string, number> {
+    const map: Record<string, number> = {};
+    if (karyaIds.length === 0) return map;
+    const placeholders = karyaIds.map(() => "?").join(",");
+    const rows = this.db
+      .query(
+        `SELECT karya_id, COUNT(*) AS n FROM likes WHERE karya_id IN (${placeholders}) GROUP BY karya_id`
+      )
+      .all(...karyaIds) as { karya_id: string; n: number }[];
+    for (const r of rows) map[r.karya_id] = r.n;
+    return map;
+  }
 }

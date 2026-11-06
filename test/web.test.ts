@@ -423,6 +423,25 @@ describe("Web — public pages", () => {
     expect(filtered).toContain("Desain Satu");
     expect(filtered).not.toContain("Motion Dua");
   });
+
+  test("POST /admin/karya with invalid kategori falls back to 'lainnya'", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const res = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Sneaky", deskripsi: "", kategori: "hacker" }).toString(),
+    });
+    expect(res.status).toBe(302);
+    const loc = res.headers.get("location")!;
+    expect(loc).toMatch(/^\/admin\/karya\/[^/]+$/);
+
+    const list = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    expect(list).toContain("Sneaky");
+    expect(list).toContain("lainnya");
+    expect(list).not.toContain("hacker");
+  });
 });
 
 describe("Web — file cleanup", () => {

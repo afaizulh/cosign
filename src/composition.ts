@@ -23,9 +23,16 @@ export function withComposition(
   items: Array<Record<string, unknown>>,
   karya: KaryaModel
 ): Array<Record<string, unknown>> {
-  return items.map((k) => ({
-    ...k,
-    parts: latestParts(karya.parts(String(k.id))),
-    like_count: karya.likeCount(String(k.id)),
-  }));
+  // Batch two queries for the whole list instead of 2 queries per karya (N+1).
+  const ids = items.map((k) => String(k.id));
+  const partsByKarya = karya.partsForMany(ids);
+  const likesByKarya = karya.likeCountsForMany(ids);
+  return items.map((k) => {
+    const id = String(k.id);
+    return {
+      ...k,
+      parts: latestParts(partsByKarya[id] ?? []),
+      like_count: likesByKarya[id] ?? 0,
+    };
+  });
 }
