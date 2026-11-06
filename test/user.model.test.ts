@@ -38,4 +38,15 @@ describe("UserModel", () => {
     expect(pub.username).toBe("fajar");
     expect(pub.password_hash).toBeUndefined();
   });
+
+  test("usernameExists abaikan kapital", async () => {
+    const db = createTestDb();
+    const users = new UserModel(db);
+    await users.create("fajar", "rahasia123");
+
+    expect(users.usernameExists("fajar")).toBe(true);
+    expect(users.usernameExists("Fajar")).toBe(true);
+    expect(users.usernameExists("FAJAR")).toBe(true);
+    expect(users.usernameExists("fajar2")).toBe(false);
+  });
 });

@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { unlinkSync } from "fs";
+import { readdirSync, unlinkSync } from "fs";
+import { createApp } from "../src/app";
+import type { Db } from "../src/db";
 import {
   createTestApp,
+  createTestDb,
   cookieFrom,
   formHeaders,
   formPostHeaders,
@@ -13,7 +16,7 @@ const PNG = new File([PNG_BODY], "part.png", { type: "image/png" });
 
 /** Upload one part to a karya. Returns the part id if needed. */
 async function uploadPart(
-  app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+  app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
   cookie: string,
   karyaId: string,
   kategori: string,
@@ -43,7 +46,7 @@ describe("Web — health & homepage", () => {
   test("GET /health → driver sqlite", async () => {
     const app = createTestApp();
     const res = await app.request("/health");
-    expect((await res.json()).driver).toBe("sqlite");
+    expect(((await res.json()) as { driver: string }).driver).toBe("sqlite");
   });
 });
 
@@ -78,6 +81,15 @@ describe("Web — auth", () => {
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/admin/karya");
     expect(cookieFrom(res)).toContain("sid=");
+
+    // Cookie hardened: HttpOnly, SameSite, path, TTL from SESSION_TTL_DAYS (7 days).
+    // No APP_URL=https:// in tests → no Secure flag.
+    const sidCookie = res.headers.getSetCookie().find((c) => c.startsWith("sid="))!;
+    expect(sidCookie).toContain("HttpOnly");
+    expect(sidCookie).toContain("SameSite=Lax");
+    expect(sidCookie).toContain("Path=/");
+    expect(sidCookie).toContain("Max-Age=604800");
+    expect(sidCookie).not.toContain("Secure");
   });
 
   test("POST /admin/register duplicate username → re-render with error", async () => {
@@ -103,6 +115,35 @@ describe("Web — auth", () => {
     });
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("at least 6 characters");
+  });
+
+  test("POST /admin/register unsafe username → rejected (URL-safe charset only)", async () => {
+    const app = createTestApp();
+    for (const bad of ["admin/", "admin profile", "Admin", "#user", "..", "ab", "a".repeat(21)]) {
+      const res = await app.request("/admin/register", {
+        method: "POST",
+        headers: formPostHeaders,
+        body: new URLSearchParams({ username: bad, password: "rahasia123" }).toString(),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("3–20 characters");
+    }
+  });
+
+  test("POST /admin/register duplicate differs only by case → rejected", async () => {
+    const app = createTestApp();
+    await registerUser(app, "admin");
+
+    const res = await app.request("/admin/register", {
+      method: "POST",
+      headers: formPostHeaders,
+      body: new URLSearchParams({ username: "ADMIN", password: "rahasia123" }).toString(),
+    });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("admin");
+    // "ADMIN" fails charset first, so it never reaches the taken check — assert single form of rejection
+    expect(html).not.toContain("Welcome to CoSign");
   });
 
   test("POST /admin/login wrong password → re-render with error", async () => {
@@ -270,6 +311,37 @@ describe("Web — karya (auth)", () => {
       headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
     });
     expect(await page.text()).toContain("Only image files are allowed");
+  });
+
+  test("upload over body limit → flash error, no save", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const big = new File([new Uint8Array(22 * 1024 * 1024)], "big.png", { type: "image/png" });
+    const form = new FormData();
+    form.append("kategori", "kepala");
+    form.append("media", big);
+
+    const res = await app.request(`/admin/karya/${karyaId}/parts`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+      body: form,
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(`/admin/karya/${karyaId}`);
+
+    const sidCookie = cookie.split(";")[0];
+    const page = await app.request(`/admin/karya/${karyaId}`, {
+      headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
+    });
+    expect(await page.text()).toContain("Upload too large");
   });
 
   test("upload part without file → flash error", async () => {
@@ -449,5 +521,125 @@ describe("Web — file cleanup", () => {
       headers: { cookie, ...formHeaders },
     });
     expect(() => unlinkSync(`uploads/${file}`)).toThrow();
+  });
+});
+
+describe("Web — regression (bug #16 coverage)", () => {
+  /** Create a karya and upload one head part. Returns ids + the stored filename. */
+  async function seedKarya(
+    app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
+    cookie: string,
+    judul = "Seed"
+  ) {
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+    await uploadPart(app, cookie, karyaId, "kepala");
+    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } })).text();
+    const partId = manage.match(/\/parts\/([0-9a-f-]+)\/delete/)?.[1]!;
+    const file = manage.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1]!;
+    return { karyaId, partId, file };
+  }
+
+  // Each test below documents a coverage gap found in #16. They are skipped because
+  // the underlying bug is owned by another developer — flip to `test(` once fixed.
+  test.skip("bug #3: homepage & profile card points at /uploads/<file>, never /uploads/uploads/", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const { karyaId, file } = await seedKarya(app, cookie, "Kartu");
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain(`/uploads/${file}`);
+    expect(home).not.toContain("/uploads/uploads/");
+
+    const profil = await (await app.request("/profil/admin")).text();
+    expect(profil).toContain(`/uploads/${file}`);
+    expect(profil).not.toContain("/uploads/uploads/");
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+  });
+
+  test.skip("bug #2: owner of karya A cannot delete a part belonging to karya B", async () => {
+    const app = createTestApp();
+    const attacker = await registerUser(app, "attacker");
+    const victim = await registerUser(app, "victim");
+
+    const a = await seedKarya(app, attacker, "A");
+    const b = await seedKarya(app, victim, "B");
+
+    // Attacker uses their own karya id + victim's part id.
+    await app.request(`/admin/karya/${a.karyaId}/parts/${b.partId}/delete`, {
+      method: "POST",
+      headers: { cookie: attacker, ...formHeaders },
+    });
+
+    // Victim's part must survive.
+    const bManage = await (await app.request(`/admin/karya/${b.karyaId}`, { headers: { cookie: victim } })).text();
+    expect(bManage).toContain(`/parts/${b.partId}/delete`);
+    expect(bManage).not.toContain("No head images yet");
+
+    for (const [cookie, id] of [[attacker, a.karyaId], [victim, b.karyaId]] as const) {
+      await app.request(`/admin/karya/${id}/delete`, {
+        method: "POST",
+        headers: { cookie, ...formHeaders },
+      });
+    }
+  });
+
+  test.skip("bug #1: upload extension comes from MIME, not filename", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const before = new Set(readdirSync("uploads"));
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Ext", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    // Declared image/png, named evil.html → must NOT be stored as .html.
+    const evil = new File(["<script>alert(1)</script>"], "evil.html", { type: "image/png" });
+    await uploadPart(app, cookie, karyaId, "kepala", evil);
+
+    const created = readdirSync("uploads").filter((f) => !before.has(f));
+    expect(created.length).toBe(1);
+    expect(created[0].endsWith(".html")).toBe(false);
+    expect(created[0].endsWith(".png")).toBe(true);
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+  });
+
+  test.skip("bug #4: deleting a karya removes its parts and likes rows", async () => {
+    const sqlite = createTestDb();
+    const db: Db = { driver: "sqlite", sqlite, supabase: null };
+    const app = createApp(db);
+
+    const cookie = await registerUser(app);
+    const { karyaId } = await seedKarya(app, cookie, "Orphan");
+
+    await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    const parts = (sqlite.query("SELECT COUNT(*) AS n FROM karya_parts WHERE karya_id = ?").get(karyaId) as { n: number }).n;
+    const likes = (sqlite.query("SELECT COUNT(*) AS n FROM likes WHERE karya_id = ?").get(karyaId) as { n: number }).n;
+    expect(parts).toBe(0);
+    expect(likes).toBe(0);
   });
 });

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Db } from "../db";
 import { UserModel } from "../models/user.model";
 import { KaryaModel } from "../models/karya.model";
-import { view, redirect, flashError } from "../view";
+import { view, redirect, flashError, type AppEnv } from "../view";
 import { withComposition } from "../composition";
 
 /** Fixed list of work categories (used for filters & forms). */
@@ -10,7 +10,7 @@ export const KATEGORI_LIST = ["desain", "ilustrasi", "fotografi", "motion", "lai
 
 /** Controller: public pages — homepage explore & profile. */
 export function pageController(db: Db) {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
 
   app.get("/", (c) => {
     if (!db.sqlite) return c.text("supabase mode not implemented", 501);

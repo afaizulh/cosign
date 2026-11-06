@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Db } from "../db";
+import type { AppEnv } from "../view";
 import { injectLocals } from "../middleware/locals.middleware";
 import { authController } from "../controllers/auth.controller";
 import { pageController } from "../controllers/page.controller";
@@ -10,7 +11,7 @@ import {
 
 /** Web router: all browser pages (server-rendered, form POST). */
 export function web(db: Db) {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
 
   // Locals: logged-in user + flash message for every page
   app.use("*", injectLocals(db));

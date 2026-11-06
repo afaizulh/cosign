@@ -7,11 +7,11 @@ import {
   redirectIfAuthenticated,
   requireAuth,
 } from "../middleware/auth.middleware";
-import { view, redirect, flashSuccess, flashError } from "../view";
+import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 
 /** Controller: /admin/auth — register, login, logout (form POST). */
 export function authController(db: Db) {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
 
   if (!db.sqlite) {
     app.all("*", (c) => c.text("supabase mode not implemented", 501));
@@ -53,13 +53,16 @@ export function authController(db: Db) {
     const fullName = String(body.full_name ?? "").trim();
 
     const errors: string[] = [];
-    if (!username || username.length < 3) {
-      errors.push("Username must be at least 3 characters.");
+    // URL-safe only: profiles live at /profil/:username
+    if (!/^[a-z0-9_-]{3,20}$/.test(username)) {
+      errors.push(
+        "Username must be 3–20 characters: lowercase letters, numbers, underscore or hyphen."
+      );
     }
     if (!password || password.length < 6) {
       errors.push("Password must be at least 6 characters.");
     }
-    if (users.findByUsername(username)) {
+    if (username && users.usernameExists(username)) {
       errors.push("That username is already taken.");
     }
 

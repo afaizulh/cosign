@@ -8,15 +8,18 @@
     "dev:css": "bunx @tailwindcss/cli -i src/styles/input.css -o public/style.css --watch",
     "build:css": "bunx @tailwindcss/cli -i src/styles/input.css -o public/style.css",
     "start": "bun run src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "bun": "^1.4.4",
     "eta": "^4.6.0",
     "hono": "^4"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4",
     "@types/bun": "latest",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "typescript": "^7.0.2"
   }
 }

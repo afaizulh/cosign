@@ -45,7 +45,7 @@ export const formPostHeaders = {
 
 /** Register a user + return session cookie. */
 export async function registerUser(
-  app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+  app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
   username = "admin",
   password = "rahasia123"
 ): Promise<string> {

@@ -1,16 +1,19 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { randomUUID } from "crypto";
 import { unlinkSync, existsSync } from "fs";
 import type { Db } from "../db";
 import { KaryaModel } from "../models/karya.model";
 import { requireAuth } from "../middleware/auth.middleware";
-import { view, redirect, flashSuccess, flashError } from "../view";
+import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 import { partsByCategory, latestParts } from "../composition";
 import { KATEGORI_LIST } from "./page.controller";
 
 export const PART_KATEGORI = ["kepala", "badan", "background"];
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
+// Request body cap: file limit + headroom for multipart boundaries/fields.
+const MAX_UPLOAD_BODY = MAX_IMAGE_SIZE + 1024 * 1024;
 const UPLOAD_DIR = "uploads"; // must stay in sync with serveStatic /uploads/* in app.ts
 
 function isOwner(item: { user_id: string }, userId: string) {
@@ -37,7 +40,7 @@ function saveImage(
  * Internal paths are relative — mount at "/admin" → /admin/karya*.
  */
 export function karyaAdminController(db: Db) {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
 
   if (!db.sqlite) {
     app.all("*", (c) => c.text("supabase mode not implemented", 501));
@@ -48,11 +51,11 @@ export function karyaAdminController(db: Db) {
 
   // GET /admin/karya — my works + create form
   app.get("/karya", requireAuth(db), (c) => {
-    const userId = c.get("userId") as string;
-    const items = karya.byUser(userId).map((k) => ({
-      ...k,
-      part_count: karya.parts(String(k.id)).length,
-    }));
+    const userId = c.get("userId");
+    const items = karya.byUser(userId).map((row) => {
+      const k = row as Record<string, unknown>;
+      return { ...k, part_count: karya.parts(String(k.id)).length };
+    });
     return view(c, "admin/karya/index", { karya: items, kategoriList: KATEGORI_LIST });
   });
 
@@ -78,7 +81,7 @@ export function karyaAdminController(db: Db) {
 
   // GET /admin/karya/:id — manage parts (upload per category, delete part)
   app.get("/karya/:id", requireAuth(db), (c) => {
-    const item = karya.findById(c.req.param("id"));
+    const item = karya.findById(c.req.param("id")!);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
       return redirect(c, "/admin/karya");
@@ -92,8 +95,19 @@ export function karyaAdminController(db: Db) {
   });
 
   // POST /admin/karya/:id/parts — upload a part image
-  app.post("/karya/:id/parts", requireAuth(db), async (c) => {
-    const id = c.req.param("id");
+  app.post(
+    "/karya/:id/parts",
+    requireAuth(db),
+    // Cap the body before parseBody() buffers it into memory.
+    bodyLimit({
+      maxSize: MAX_UPLOAD_BODY,
+      onError: (c) => {
+        flashError(c, "Upload too large. Max 20MB.");
+        return redirect(c, `/admin/karya/${c.req.param("id")!}`);
+      },
+    }),
+    async (c) => {
+    const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
@@ -133,13 +147,13 @@ export function karyaAdminController(db: Db) {
 
   // POST /admin/karya/:id/parts/:pid/delete — remove one part
   app.post("/karya/:id/parts/:pid/delete", requireAuth(db), (c) => {
-    const id = c.req.param("id");
+    const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
       return redirect(c, "/admin/karya");
     }
-    const part = karya.findPart(c.req.param("pid"));
+    const part = karya.findPart(c.req.param("pid")!);
     if (!part) {
       flashError(c, "Part not found.");
       return redirect(c, `/admin/karya/${id}`);
@@ -156,7 +170,7 @@ export function karyaAdminController(db: Db) {
 
   // POST /admin/karya/:id/delete — remove work + all part files
   app.post("/karya/:id/delete", requireAuth(db), (c) => {
-    const id = c.req.param("id");
+    const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
@@ -182,7 +196,7 @@ export function karyaAdminController(db: Db) {
  * Internal paths are relative — mount at "/" → /karya*.
  */
 export function karyaPublicController(db: Db) {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
 
   if (!db.sqlite) {
     app.all("*", (c) => c.text("supabase mode not implemented", 501));
@@ -193,7 +207,7 @@ export function karyaPublicController(db: Db) {
 
   // GET /karya/:id — public detail + customizer
   app.get("/karya/:id", (c) => {
-    const item = karya.findById(c.req.param("id"));
+    const item = karya.findById(c.req.param("id")!);
     if (!item) {
       flashError(c, "Work not found.");
       return redirect(c, "/");
@@ -213,7 +227,7 @@ export function karyaPublicController(db: Db) {
 
   // POST /karya/:id/like — toggle like
   app.post("/karya/:id/like", requireAuth(db), (c) => {
-    const id = c.req.param("id");
+    const id = c.req.param("id")!;
     if (!karya.findById(id)) {
       flashError(c, "Work not found.");
       return redirect(c, "/");
