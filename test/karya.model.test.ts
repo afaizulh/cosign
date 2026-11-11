@@ -37,6 +37,47 @@ describe("KaryaModel", () => {
     expect((karya.list("fotografi") as unknown[]).length).toBe(0);
   });
 
+  test("list search by judul/deskripsi/username", async () => {
+    const db = createTestDb();
+    const { userId, karya } = await seed(db, "siti");
+
+    karya.create({ userId, judul: "Poster Konser", deskripsi: "musik", kategori: "desain" });
+    karya.create({ userId, judul: "Logo", deskripsi: "branding", kategori: "desain" });
+
+    expect((karya.list(undefined, "konser") as unknown[]).length).toBe(1);
+    expect((karya.list(undefined, "branding") as unknown[]).length).toBe(1);
+    expect((karya.list(undefined, "siti") as unknown[]).length).toBe(2);
+    expect((karya.list(undefined, "tidakada") as unknown[]).length).toBe(0);
+  });
+
+  test("list sort popular puts most-liked first", async () => {
+    const db = createTestDb();
+    const { userId, karya } = await seed(db);
+
+    const a = karya.create({ userId, judul: "Alpha", deskripsi: "", kategori: "desain" });
+    const b = karya.create({ userId, judul: "Beta", deskripsi: "", kategori: "desain" });
+    karya.toggleLike(b, "u1");
+    karya.toggleLike(b, "u2");
+
+    const popular = karya.list(undefined, undefined, "popular") as Array<{ judul: string }>;
+    expect(popular[0].judul).toBe("Beta");
+    expect(popular[1].judul).toBe("Alpha");
+    void a;
+  });
+
+  test("update changes judul/deskripsi/kategori", async () => {
+    const db = createTestDb();
+    const { userId, karya } = await seed(db);
+
+    const id = karya.create({ userId, judul: "Lama", deskripsi: "old", kategori: "desain" });
+    karya.update(id, { judul: "Baru", deskripsi: "new", kategori: "motion" });
+
+    const row = karya.findById(id);
+    expect(row?.judul).toBe("Baru");
+    expect(row?.deskripsi).toBe("new");
+    expect(row?.kategori).toBe("motion");
+  });
+
   test("findById returns row with username, null for unknown id", async () => {
     const db = createTestDb();
     const { userId, karya } = await seed(db);

@@ -444,6 +444,113 @@ describe("Web — public pages", () => {
   });
 });
 
+describe("Web — edit karya", () => {
+  test("owner edits title/description/category", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Old Title", deskripsi: "old", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "New Title", deskripsi: "new desc", kategori: "motion" }).toString(),
+    });
+    expect(edit.status).toBe(302);
+    expect(edit.headers.get("location")).toBe(`/admin/karya/${karyaId}`);
+
+    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(manage).toContain("New Title");
+    expect(manage).toContain("new desc");
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("New Title");
+    expect(home).not.toContain("Old Title");
+  });
+
+  test("edit without title → flash error, unchanged", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Keep Me", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "  ", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    expect(edit.status).toBe(302);
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("Keep Me");
+  });
+
+  test("owner guard: other user cannot edit", async () => {
+    const app = createTestApp();
+    const cookie1 = await registerUser(app, "owner1");
+    const cookie2 = await registerUser(app, "owner2");
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie: cookie1, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Mine", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+      method: "POST",
+      headers: { cookie: cookie2, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Hacked", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    expect(edit.status).toBe(302);
+    expect(edit.headers.get("location")).toBe("/admin/karya");
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("Mine");
+    expect(home).not.toContain("Hacked");
+  });
+});
+
+describe("Web — search & sort", () => {
+  test("search filters by title; sort popular orders by likes", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const mk = (judul: string) =>
+      app.request("/admin/karya", {
+        method: "POST",
+        headers: { cookie, ...formPostHeaders },
+        body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+      });
+    const alpha = await mk("Alpha Work");
+    const beta = await mk("Beta Work");
+    const betaId = beta.headers.get("location")!.split("/").pop()!;
+    void alpha;
+
+    await app.request(`/karya/${betaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    const search = await (await app.request("/?q=Alpha")).text();
+    expect(search).toContain("Alpha Work");
+    expect(search).not.toContain("Beta Work");
+
+    const popular = await (await app.request("/?sort=popular")).text();
+    expect(popular.indexOf("Beta Work")).toBeLessThan(popular.indexOf("Alpha Work"));
+  });
+});
+
 describe("Web — file cleanup", () => {
   test("uploaded files are removed when karya is deleted", async () => {
     const app = createTestApp();

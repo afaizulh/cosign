@@ -16,11 +16,15 @@ export function pageController(db: Db) {
     if (!db.sqlite) return c.text("supabase mode not implemented", 501);
     const karya = new KaryaModel(db.sqlite);
     const kategori = c.req.query("kategori") || undefined;
-    const items = withComposition(karya.list(kategori), karya);
+    const q = c.req.query("q")?.trim() || undefined;
+    const sort = c.req.query("sort") || "newest";
+    const items = withComposition(karya.list(kategori, q, sort), karya);
     return view(c, "homepage/index", {
       karya: items,
       kategoriList: KATEGORI_LIST,
       aktif: kategori ?? "",
+      q: q ?? "",
+      sort,
     });
   });
 

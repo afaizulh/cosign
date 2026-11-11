@@ -9,6 +9,31 @@
   <a href="/admin/karya" class="text-sm text-slate-500 hover:text-slate-700">← My Work</a>
 </div>
 
+<details class="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+  <summary class="font-semibold cursor-pointer list-none">Edit details</summary>
+  <form method="post" action="/admin/karya/<%= it.karya.id %>/edit" class="space-y-3 mt-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Title</label>
+      <input name="judul" required value="<%= it.karya.judul %>"
+        class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Description</label>
+      <textarea name="deskripsi" rows="3"
+        class="w-full border border-slate-300 rounded-lg px-3 py-2"><%= it.karya.deskripsi || "" %></textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Category</label>
+      <select name="kategori" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+        <% it.workKategoriList.forEach(function (k) { %>
+          <option value="<%= k %>" <%= it.karya.kategori === k ? "selected" : "" %>><%= k %></option>
+        <% }) %>
+      </select>
+    </div>
+    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Save changes</button>
+  </form>
+</details>
+
 <% const labels = { kepala: "Head", badan: "Body", background: "Background" }; %>
 <% it.kategoriList.forEach(function (kat) { %>
   <section class="bg-white border border-slate-200 rounded-xl p-5 mb-6">

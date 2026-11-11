@@ -14,19 +14,37 @@ export type KaryaPart = {
 export class KaryaModel {
   constructor(private db: Database) {}
 
-  /** List all karya (explore), optional kategori filter. */
-  list(kategori?: string) {
-    return kategori
-      ? this.db
-          .query(
-            "SELECT k.*, u.username FROM karya k JOIN users u ON u.id = k.user_id WHERE k.kategori = ? ORDER BY k.created_at DESC"
-          )
-          .all(kategori)
-      : this.db
-          .query(
-            "SELECT k.*, u.username FROM karya k JOIN users u ON u.id = k.user_id ORDER BY k.created_at DESC"
-          )
-          .all();
+  /** List all karya (explore), optional kategori filter, search & sort. */
+  list(kategori?: string, q?: string, sort?: string) {
+    const where: string[] = [];
+    const params: string[] = [];
+    if (kategori) {
+      where.push("k.kategori = ?");
+      params.push(kategori);
+    }
+    if (q) {
+      where.push("(k.judul LIKE ? OR k.deskripsi LIKE ? OR u.username LIKE ?)");
+      const like = `%${q}%`;
+      params.push(like, like, like);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const orderSql =
+      sort === "popular"
+        ? "ORDER BY like_count DESC, k.created_at DESC"
+        : sort === "oldest"
+          ? "ORDER BY k.created_at ASC"
+          : "ORDER BY k.created_at DESC";
+    return this.db
+      .query(
+        `SELECT k.*, u.username, COUNT(l.user_id) AS like_count
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         LEFT JOIN likes l ON l.karya_id = k.id
+         ${whereSql}
+         GROUP BY k.id
+         ${orderSql}`
+      )
+      .all(...params);
   }
 
   /** List karya owned by one user. */
@@ -59,6 +77,16 @@ export class KaryaModel {
       )
       .run(id, data.userId, data.judul, data.deskripsi, data.kategori);
     return id;
+  }
+
+  /** Update karya metadata (title, description, category). */
+  update(
+    id: string,
+    data: { judul: string; deskripsi: string; kategori: string }
+  ) {
+    this.db
+      .query("UPDATE karya SET judul = ?, deskripsi = ?, kategori = ? WHERE id = ?")
+      .run(data.judul, data.deskripsi, data.kategori, id);
   }
 
   /** Delete karya. */
