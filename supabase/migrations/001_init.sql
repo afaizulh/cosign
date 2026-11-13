@@ -40,3 +40,13 @@ create table if not exists likes (
   user_id uuid references users(id) on delete cascade,
   primary key (karya_id, user_id)
 );
+
+create table if not exists comments (
+  id uuid primary key,
+  karya_id uuid references karya(id) on delete cascade,
+  user_id uuid references users(id) on delete cascade,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_comments_karya on comments(karya_id, created_at);

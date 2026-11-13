@@ -59,14 +59,17 @@ cosign/
 │   ├── db.ts                   # koneksi DB (sqlite | supabase) + migrasi
 │   ├── view.ts                 # setup Eta + helper view()/redirect()/flash
 │   ├── composition.ts          # helper parts per kategori + like count
+│   ├── uploads.ts              # validasi & simpan gambar upload (part/avatar)
 │   ├── models/                 # MODEL — akses data / query SQL
-│   │   ├── user.model.ts       #   users: register, verifyPassword (argon2)
+│   │   ├── user.model.ts       #   users: register, verifyPassword, profil/avatar
 │   │   ├── session.model.ts    #   sessions: create/find/delete session cookie
-│   │   └── karya.model.ts      #   karya + karya_parts + likes
+│   │   ├── karya.model.ts      #   karya + karya_parts + likes
+│   │   └── comment.model.ts    #   comments: komentar per karya
 │   ├── controllers/            # CONTROLLER — form POST → model → view/redirect
 │   │   ├── auth.controller.ts  #   /admin/login, /admin/register, /admin/logout
+│   │   ├── profil.controller.ts #  /admin/profil — edit profil, bio, avatar
 │   │   ├── page.controller.ts  #   GET / (explore), GET /profil/:username
-│   │   └── karya.controller.ts #   admin CRUD + parts, publik detail/customizer + like
+│   │   └── karya.controller.ts #   admin CRUD + parts, publik detail/customizer + like + komentar
 │   ├── middleware/
 │   │   ├── auth.middleware.ts  # session helpers + requireAuth + guest
 │   │   └── locals.middleware.ts # inject user login + flash ke context
@@ -104,14 +107,20 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 |--------|------|-------------|------|
 | GET | `/` | `homepage/index` — explore (filter kategori) | - |
 | GET | `/health` | health check | - |
-| GET | `/karya/:id` | `homepage/karya` — detail + customizer | - |
+| GET | `/karya/:id` | `homepage/karya` — detail + customizer + komentar | - |
 | POST | `/karya/:id/like` | toggle like | ✓ |
+| POST | `/karya/:id/comments` | tambah komentar | ✓ |
+| POST | `/karya/:id/comments/:cid/delete` | hapus komentar (penulis / pemilik karya) | ✓ |
 | GET | `/profil/:username` | `homepage/profil` — profil publik | - |
 | GET | `/admin/login` | `admin/auth/login` | guest |
 | POST | `/admin/login` | login → `/admin/karya` | guest |
 | GET | `/admin/register` | `admin/auth/register` | guest |
 | POST | `/admin/register` | buat user → `/admin/karya` | guest |
 | POST | `/admin/logout` | logout → `/` | ✓ |
+| GET | `/admin/profil` | `admin/profil/edit` — edit profil | ✓ |
+| POST | `/admin/profil` | update full name & bio | ✓ |
+| POST | `/admin/profil/avatar` | upload / ganti avatar | ✓ |
+| POST | `/admin/profil/avatar/delete` | hapus avatar | ✓ |
 | GET | `/admin/karya` | `admin/karya/index` — karya saya + form buat | ✓ |
 | POST | `/admin/karya` | buat karya (judul, deskripsi, kategori) | ✓ |
 | GET | `/admin/karya/:id` | `admin/karya/show` — kelola parts | ✓ (owner) |
@@ -119,9 +128,11 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 | POST | `/admin/karya/:id/parts/:pid/delete` | hapus part | ✓ (owner) |
 | POST | `/admin/karya/:id/delete` | hapus karya + semua file part | ✓ (owner) |
 
-Semua mutasi via form POST (PRG). Upload part divalidasi: hanya
-`image/jpeg|png|gif|webp`, maksimal **20MB**, disimpan sebagai
+Semua mutasi via form POST (PRG). Upload gambar (part & avatar) divalidasi:
+hanya `image/jpeg|png|gif|webp`, maksimal **20MB**, disimpan sebagai
 `uploads/<uuid>.<ext>`. Kategori part: `kepala`, `badan`, `background`.
+Komentar maks 1000 karakter; hanya penulis komentar atau pemilik karya yang
+bisa menghapusnya.
 
 ---
 
@@ -139,7 +150,7 @@ tidak menyentuh `data/app.db`. Cakupan saat ini:
 | `test/session.model.test.ts` | create/find/delete session |
 | `test/user.model.test.ts` | register, verifyPassword, tanpa bocor hash |
 | `test/karya.model.test.ts` | CRUD karya, parts (add/list/find/delete), toggleLike, likeCount |
-| `test/web.test.ts` | render view, auth flow, buat karya, upload parts (valid/invalid), owner guard, customizer, like, profil, filter kategori, cleanup file |
+| `test/web.test.ts` | render view, auth flow, buat karya, upload parts (valid/invalid), owner guard, customizer, like, profil, edit profil/avatar, komentar, filter kategori, cleanup file |
 
 CI otomatis menjalankan `bun test` + `bun run build:css` di setiap push/PR ke
 `master`.
@@ -164,9 +175,7 @@ Catatan: route saat ini **sqlite-first**. Saat pindah Supabase, tambahkan branch
 
 ## Roadmap
 
-- **Edit profil & bio** — lengkapi identitas user di halaman profil.
 - **Customizer lanjutan** — posisi/ukuran part tersimpan per karya.
-- **Komentar pada karya** — diskusi antar siswa.
 - **Supabase driver** — implementasikan branch `db.supabase` di controller.
 
 Lihat [issue-issue](https://github.com/ccit-venture/cosign/issues) untuk daftar

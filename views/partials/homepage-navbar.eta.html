@@ -5,6 +5,15 @@
       <a href="/" class="hover:text-indigo-600">Explore</a>
       <% if (it.user) { %>
         <a href="/admin/karya" class="hover:text-indigo-600">My Work</a>
+        <% if (it.user.avatar_path) { %>
+          <a href="/admin/profil" class="flex items-center gap-2 hover:text-indigo-600">
+            <img src="/uploads/<%= it.user.avatar_path.replace(/^uploads\//, '') %>" alt=""
+              class="w-7 h-7 rounded-full object-cover border border-slate-200" />
+            <%= it.user.username %>
+          </a>
+        <% } else { %>
+          <a href="/admin/profil" class="hover:text-indigo-600"><%= it.user.username %></a>
+        <% } %>
         <form method="post" action="/admin/logout" class="inline">
           <button type="submit" class="text-red-600 hover:text-red-700">Sign out</button>
         </form>

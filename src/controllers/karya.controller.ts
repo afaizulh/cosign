@@ -1,38 +1,19 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { randomUUID } from "crypto";
 import { unlinkSync, existsSync } from "fs";
 import type { Db } from "../db";
 import { KaryaModel } from "../models/karya.model";
+import { CommentModel } from "../models/comment.model";
 import { requireAuth } from "../middleware/auth.middleware";
 import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 import { partsByCategory, latestParts } from "../composition";
+import { saveImage, MAX_UPLOAD_BODY } from "../uploads";
 import { KATEGORI_LIST } from "./page.controller";
 
 export const PART_KATEGORI = ["kepala", "badan", "background"];
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
-// Request body cap: file limit + headroom for multipart boundaries/fields.
-const MAX_UPLOAD_BODY = MAX_IMAGE_SIZE + 1024 * 1024;
-const UPLOAD_DIR = "uploads"; // must stay in sync with serveStatic /uploads/* in app.ts
 
 function isOwner(item: { user_id: string }, userId: string) {
   return item.user_id === userId;
-}
-
-/** Validate an uploaded image file. */
-function saveImage(
-  file: File
-): { ok: true; path: string } | { ok: false; error: string } {
-  if (!IMAGE_TYPES.includes(file.type)) {
-    return { ok: false, error: "Only image files are allowed (JPG, PNG, GIF, WEBP)." };
-  }
-  if (file.size > MAX_IMAGE_SIZE) {
-    return { ok: false, error: "Image size limit is 20MB." };
-  }
-  const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
-  const path = `${UPLOAD_DIR}/${randomUUID()}.${ext}`;
-  return { ok: true, path };
 }
 
 /**
@@ -214,6 +195,7 @@ export function karyaAdminController(db: Db) {
         // ignore
       }
     }
+    new CommentModel(db.sqlite!).deleteByKarya(id);
     karya.delete(id);
     flashSuccess(c, "Work deleted.");
     return redirect(c, "/admin/karya");
@@ -235,6 +217,7 @@ export function karyaPublicController(db: Db) {
   }
 
   const karya = new KaryaModel(db.sqlite);
+  const comments = new CommentModel(db.sqlite);
 
   // GET /karya/:id — public detail + customizer
   app.get("/karya/:id", (c) => {
@@ -255,7 +238,53 @@ export function karyaPublicController(db: Db) {
       karya: data,
       byCategory: partsByCategory(parts),
       kategoriList: PART_KATEGORI,
+      comments: comments.byKarya(item.id),
     });
+  });
+
+  // POST /karya/:id/comments — add a comment
+  app.post("/karya/:id/comments", requireAuth(db), async (c) => {
+    const id = c.req.param("id")!;
+    if (!karya.findById(id)) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/");
+    }
+    const body = await c.req.parseBody();
+    const text = String(body.body ?? "").trim();
+    if (!text) {
+      flashError(c, "Comment cannot be empty.");
+      return redirect(c, `/karya/${id}`);
+    }
+    if (text.length > 1000) {
+      flashError(c, "Comment is too long (max 1000 characters).");
+      return redirect(c, `/karya/${id}`);
+    }
+    comments.create(id, c.get("userId") as string, text);
+    flashSuccess(c, "Comment posted.");
+    return redirect(c, `/karya/${id}`);
+  });
+
+  // POST /karya/:id/comments/:cid/delete — author or karya owner
+  app.post("/karya/:id/comments/:cid/delete", requireAuth(db), (c) => {
+    const id = c.req.param("id")!;
+    const item = karya.findById(id);
+    if (!item) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/");
+    }
+    const comment = comments.findById(c.req.param("cid")!);
+    if (!comment || comment.karya_id !== id) {
+      flashError(c, "Comment not found.");
+      return redirect(c, `/karya/${id}`);
+    }
+    const userId = c.get("userId") as string;
+    if (comment.user_id !== userId && item.user_id !== userId) {
+      flashError(c, "You cannot delete this comment.");
+      return redirect(c, `/karya/${id}`);
+    }
+    comments.delete(comment.id);
+    flashSuccess(c, "Comment deleted.");
+    return redirect(c, `/karya/${id}`);
   });
 
   // POST /karya/:id/like — toggle like

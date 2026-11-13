@@ -811,3 +811,262 @@ describe("Web — regression (bug #16 coverage)", () => {
     expect(likes).toBe(0);
   });
 });
+
+describe("Web — edit profil", () => {
+  test("GET /admin/profil without login → 302 /admin/login", async () => {
+    const app = createTestApp();
+    const res = await app.request("/admin/profil");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/admin/login");
+  });
+
+  test("GET /admin/profil → form renders", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const res = await app.request("/admin/profil", { headers: { cookie } });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Edit Profile");
+    expect(html).toContain('name="bio"');
+    expect(html).toContain('name="full_name"');
+  });
+
+  test("POST /admin/profil updates full name & bio", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const res = await app.request("/admin/profil", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ full_name: "Hudya R", bio: "Illustrator and designer" }).toString(),
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/admin/profil");
+
+    const profil = await (await app.request("/profil/admin")).text();
+    expect(profil).toContain("Hudya R");
+    expect(profil).toContain("Illustrator and designer");
+  });
+
+  test("POST /admin/profil bio too long → flash error, unchanged", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const res = await app.request("/admin/profil", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ full_name: "Keep", bio: "x".repeat(501) }).toString(),
+    });
+    expect(res.status).toBe(302);
+
+    const sidCookie = cookie.split(";")[0];
+    const page = await app.request("/admin/profil", {
+      headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
+    });
+    expect(await page.text()).toContain("Bio is too long");
+
+    const profil = await (await app.request("/profil/admin")).text();
+    expect(profil).not.toContain("x".repeat(501));
+  });
+
+  test("upload avatar → shown on profile; replace removes old file", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const upload = async (name: string) => {
+      const form = new FormData();
+      form.append("avatar", new File(["img"], name, { type: "image/png" }));
+      return app.request("/admin/profil/avatar", {
+        method: "POST",
+        headers: { cookie, ...formHeaders },
+        body: form,
+      });
+    };
+
+    const first = await upload("one.png");
+    expect(first.status).toBe(302);
+    const page1 = await (await app.request("/admin/profil", { headers: { cookie } })).text();
+    const file1 = page1.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1];
+    expect(file1).toBeTruthy();
+
+    const second = await upload("two.png");
+    expect(second.status).toBe(302);
+    const page2 = await (await app.request("/admin/profil", { headers: { cookie } })).text();
+    const file2 = page2.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1];
+    expect(file2).toBeTruthy();
+    expect(file2).not.toBe(file1);
+    expect(() => unlinkSync(`uploads/${file1}`)).toThrow();
+
+    const profil = await (await app.request("/profil/admin")).text();
+    expect(profil).toContain(`/uploads/${file2}`);
+
+    // Remove avatar
+    const del = await app.request("/admin/profil/avatar/delete", {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+    expect(del.status).toBe(302);
+    expect(() => unlinkSync(`uploads/${file2}`)).toThrow();
+  });
+
+  test("upload non-image avatar → flash error", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const form = new FormData();
+    form.append("avatar", new File(["hello"], "notes.txt", { type: "text/plain" }));
+    const res = await app.request("/admin/profil/avatar", {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+      body: form,
+    });
+    expect(res.status).toBe(302);
+
+    const sidCookie = cookie.split(";")[0];
+    const page = await app.request("/admin/profil", {
+      headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
+    });
+    expect(await page.text()).toContain("Only image files are allowed");
+  });
+});
+
+describe("Web — komentar karya", () => {
+  async function seedKarya(
+    app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
+    cookie: string,
+    judul = "Komentar"
+  ) {
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+    });
+    return create.headers.get("location")!.split("/").pop()!;
+  }
+
+  test("guest sees sign-in prompt, no comment form", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const karyaId = await seedKarya(app, cookie);
+
+    const html = await (await app.request(`/karya/${karyaId}`)).text();
+    expect(html).toContain("to leave a comment");
+    expect(html).not.toContain(`action="/karya/${karyaId}/comments"`);
+  });
+
+  test("logged in posts comment → appears with username", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const karyaId = await seedKarya(app, cookie);
+
+    const res = await app.request(`/karya/${karyaId}/comments`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ body: "Keren banget!" }).toString(),
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(`/karya/${karyaId}`);
+
+    const html = await (await app.request(`/karya/${karyaId}`)).text();
+    expect(html).toContain("Keren banget!");
+    expect(html).toContain("Comments (1)");
+    expect(html).toContain(">admin</a>");
+  });
+
+  test("empty comment → flash error, not created", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const karyaId = await seedKarya(app, cookie);
+
+    const res = await app.request(`/karya/${karyaId}/comments`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ body: "   " }).toString(),
+    });
+    expect(res.status).toBe(302);
+
+    const sidCookie = cookie.split(";")[0];
+    const page = await app.request(`/karya/${karyaId}`, {
+      headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
+    });
+    const html = await page.text();
+    expect(html).toContain("Comment cannot be empty");
+    expect(html).toContain("Comments (0)");
+  });
+
+  test("author deletes own comment", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const karyaId = await seedKarya(app, cookie);
+
+    await app.request(`/karya/${karyaId}/comments`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ body: "Hapus aku" }).toString(),
+    });
+    const html = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    const commentId = html.match(/\/comments\/([0-9a-f-]+)\/delete/)?.[1];
+    expect(commentId).toBeTruthy();
+
+    const del = await app.request(`/karya/${karyaId}/comments/${commentId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+    expect(del.status).toBe(302);
+    const after = await (await app.request(`/karya/${karyaId}`)).text();
+    expect(after).toContain("Comments (0)");
+  });
+
+  test("karya owner can delete another user's comment; stranger cannot", async () => {
+    const app = createTestApp();
+    const owner = await registerUser(app, "owner");
+    const commenter = await registerUser(app, "commenter");
+    const stranger = await registerUser(app, "stranger");
+    const karyaId = await seedKarya(app, owner);
+
+    await app.request(`/karya/${karyaId}/comments`, {
+      method: "POST",
+      headers: { cookie: commenter, ...formPostHeaders },
+      body: new URLSearchParams({ body: "Nice work" }).toString(),
+    });
+    const html = await (await app.request(`/karya/${karyaId}`, { headers: { cookie: commenter } })).text();
+    const commentId = html.match(/\/comments\/([0-9a-f-]+)\/delete/)?.[1];
+    expect(commentId).toBeTruthy();
+
+    // Stranger cannot delete
+    await app.request(`/karya/${karyaId}/comments/${commentId}/delete`, {
+      method: "POST",
+      headers: { cookie: stranger, ...formHeaders },
+    });
+    expect(await (await app.request(`/karya/${karyaId}`)).text()).toContain("Comments (1)");
+
+    // Karya owner can delete
+    await app.request(`/karya/${karyaId}/comments/${commentId}/delete`, {
+      method: "POST",
+      headers: { cookie: owner, ...formHeaders },
+    });
+    expect(await (await app.request(`/karya/${karyaId}`)).text()).toContain("Comments (0)");
+  });
+
+  test("deleting karya removes its comments", async () => {
+    const sqlite = createTestDb();
+    const db: Db = { driver: "sqlite", sqlite, supabase: null };
+    const app = createApp(db);
+    const cookie = await registerUser(app);
+    const karyaId = await seedKarya(app, cookie);
+
+    await app.request(`/karya/${karyaId}/comments`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ body: "Bye" }).toString(),
+    });
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    const n = (sqlite.query("SELECT COUNT(*) AS n FROM comments WHERE karya_id = ?").get(karyaId) as { n: number }).n;
+    expect(n).toBe(0);
+  });
+});
