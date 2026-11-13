@@ -52,10 +52,13 @@ export function karyaAdminController(db: Db) {
     const userId = c.get("userId");
     const rows = karya.byUser(userId) as Array<Record<string, unknown>>;
     // One batch query for all part counts instead of one per karya (N+1).
-    const partsByKarya = karya.partsForMany(rows.map((k) => String(k.id)));
+    const ids = rows.map((k) => String(k.id));
+    const partsByKarya = karya.partsForMany(ids);
+    const assetsByKarya = karya.assetCountsForMany(ids);
     const items = rows.map((k) => ({
       ...k,
       part_count: (partsByKarya[String(k.id)] ?? []).length,
+      asset_count: assetsByKarya[String(k.id)] ?? 0,
     }));
     return view(c, "admin/karya/index", { karya: items, kategoriList: KATEGORI_LIST });
   });

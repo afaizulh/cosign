@@ -499,6 +499,12 @@ describe("Web — karya 3D", () => {
     const file = page.match(/\/uploads\/([0-9a-f-]+\.glb)/)?.[1];
     expect(file).toBeTruthy();
 
+    // Admin list shows asset count + Manage Assets for 3D works
+    const list = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    expect(list).toContain("1 asset");
+    expect(list).toContain("Manage Assets");
+    expect(list).toContain(`/admin/karya/${karyaId}/3d`);
+
     const pub = await (await app.request(`/karya/${karyaId}`)).text();
     expect(pub).toContain("3D assets");
     expect(pub).toContain("Main model");
