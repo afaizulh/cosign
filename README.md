@@ -194,9 +194,11 @@ keamanan, jangan buka issue publik — lihat [SECURITY.md](SECURITY.md).
 
 ## Kontributor
 
-| Nama | Peran |
-|------|-------|
-| Muhammad Hudya Ramadhana | Maintainer, backend & API |
+| Kontributor | Peran | Kontribusi |
+|-------------|-------|------------|
+| [@perogeremmer](https://github.com/perogeremmer) | Maintainer · backend & API | Inisialisasi proyek, refactor server-rendered MVC, karya multi-part ([#7](https://github.com/ccit-venture/cosign/pull/7)) |
+| [@afaizulh](https://github.com/afaizulh) | Keamanan, performa & fitur karya | [#8](https://github.com/ccit-venture/cosign/pull/8) tutup timing attack login, migrasi media aman, validasi kategori, N+1, rate limit · [#10](https://github.com/ccit-venture/cosign/pull/10) edit karya + pencarian & sort · [#11](https://github.com/ccit-venture/cosign/pull/11) state like per user + export komposisi PNG |
+| [@nabilalefqi-hash](https://github.com/nabilalefqi-hash) | Hardening & type safety | [#9](https://github.com/ccit-venture/cosign/pull/9) session TTL, body limit upload, validasi username, cache Eta, `bun run typecheck` + CI |
 
 **Institusi:** CEP CCIT-FTUI
 
