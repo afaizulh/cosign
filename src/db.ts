@@ -76,6 +76,16 @@ export function migrate(db: Database) {
       user_id TEXT NOT NULL,
       PRIMARY KEY (karya_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      karya_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_comments_karya ON comments(karya_id, created_at);
   `);
 
   // Migrate old karya schema (media_path/media_type columns on karya) → karya_parts.

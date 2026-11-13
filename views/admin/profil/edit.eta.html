@@ -1,0 +1,60 @@
+<% layout("/layouts/admin") %>
+<% it.title = "Edit Profile — CoSign" %>
+<% const avatar = it.profil && it.profil.avatar_path ? "/uploads/" + it.profil.avatar_path.replace(/^uploads\//, "") : null; %>
+
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Edit Profile</h1>
+    <a href="/profil/<%= it.profil.username %>" class="text-sm text-slate-500 hover:text-slate-700">View public profile →</a>
+  </div>
+
+  <section class="bg-white border border-slate-200 rounded-xl p-6 mb-6">
+    <h2 class="font-semibold mb-4">Avatar</h2>
+    <div class="flex items-center gap-5">
+      <% if (avatar) { %>
+        <img src="<%= avatar %>" alt="Avatar" class="w-20 h-20 rounded-full object-cover border border-slate-200" />
+      <% } else { %>
+        <div class="w-20 h-20 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl text-slate-400">
+          <%= it.profil.username.charAt(0).toUpperCase() %>
+        </div>
+      <% } %>
+      <div class="space-y-2">
+        <form method="post" action="/admin/profil/avatar" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+          <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" required
+            class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+          <button type="submit" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">Upload</button>
+        </form>
+        <% if (avatar) { %>
+          <form method="post" action="/admin/profil/avatar/delete" onsubmit="return confirm('Remove your avatar?')">
+            <button type="submit" class="text-red-600 hover:underline text-sm">Remove avatar</button>
+          </form>
+        <% } %>
+        <p class="text-xs text-slate-400">JPG, PNG, GIF or WEBP · max 20MB</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-white border border-slate-200 rounded-xl p-6">
+    <h2 class="font-semibold mb-4">Details</h2>
+    <form method="post" action="/admin/profil" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Username</label>
+        <input value="<%= it.profil.username %>" disabled
+          class="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-lg px-3 py-2" />
+        <p class="text-xs text-slate-400 mt-1">Username cannot be changed.</p>
+      </div>
+      <div>
+        <label for="full_name" class="block text-sm font-medium mb-1">Full name</label>
+        <input id="full_name" name="full_name" maxlength="80" value="<%= it.profil.full_name ?? '' %>"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label for="bio" class="block text-sm font-medium mb-1">Bio</label>
+        <textarea id="bio" name="bio" rows="4" maxlength="500"
+          placeholder="Tell people about yourself and your work"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"><%= it.profil.bio ?? '' %></textarea>
+      </div>
+      <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Save changes</button>
+    </form>
+  </section>
+</div>

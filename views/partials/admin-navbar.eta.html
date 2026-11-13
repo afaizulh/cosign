@@ -5,6 +5,7 @@
       <% if (it.user) { %>
         <span class="text-slate-500">Hi, <%= it.user.username %></span>
         <a href="/admin/karya" class="hover:text-indigo-600">My Work</a>
+        <a href="/admin/profil" class="hover:text-indigo-600">Edit Profile</a>
         <form method="post" action="/admin/logout" class="inline">
           <button type="submit" class="text-red-600 hover:text-red-700">Sign out</button>
         </form>

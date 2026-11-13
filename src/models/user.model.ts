@@ -6,6 +6,7 @@ export type PublicUser = {
   username: string;
   full_name: string | null;
   bio: string | null;
+  avatar_path: string | null;
 };
 
 /**
@@ -37,15 +38,31 @@ export class UserModel {
   /** Public user data by id (no password). */
   findPublic(id: string): PublicUser | null {
     return this.db
-      .query("SELECT id, username, full_name, bio FROM users WHERE id = ?")
+      .query("SELECT id, username, full_name, bio, avatar_path FROM users WHERE id = ?")
       .get(id) as PublicUser | null;
   }
 
   /** Public user data by username (for profile page). */
   findByUsernamePublic(username: string): PublicUser | null {
     return this.db
-      .query("SELECT id, username, full_name, bio FROM users WHERE username = ?")
+      .query("SELECT id, username, full_name, bio, avatar_path FROM users WHERE username = ?")
       .get(username) as PublicUser | null;
+  }
+
+  /** Update profile fields (full name, bio). */
+  updateProfile(id: string, data: { fullName: string; bio: string }) {
+    this.db
+      .query("UPDATE users SET full_name = ?, bio = ? WHERE id = ?")
+      .run(data.fullName || null, data.bio || null, id);
+  }
+
+  /** Replace avatar path (returns the previous path for file cleanup). */
+  setAvatar(id: string, path: string | null): string | null {
+    const row = this.db
+      .query("SELECT avatar_path FROM users WHERE id = ?")
+      .get(id) as { avatar_path: string | null } | null;
+    this.db.query("UPDATE users SET avatar_path = ? WHERE id = ?").run(path, id);
+    return row?.avatar_path ?? null;
   }
 
   /** Register: hash password, save user, return id. */

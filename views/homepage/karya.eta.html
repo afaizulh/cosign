@@ -77,6 +77,55 @@
       <% }) %>
     </div>
   </div>
+
+  <!-- Comments -->
+  <section class="mt-10 border-t border-slate-200 pt-6">
+    <h2 class="font-semibold mb-4">Comments (<%= it.comments.length %>)</h2>
+
+    <% if (it.user) { %>
+      <form method="post" action="/karya/<%= it.karya.id %>/comments" class="mb-6">
+        <textarea name="body" rows="3" required maxlength="1000" placeholder="Write a comment…"
+          class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        <button type="submit" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700">Post comment</button>
+      </form>
+    <% } else { %>
+      <p class="text-sm text-slate-500 mb-6">
+        <a href="/admin/login" class="text-indigo-600 hover:underline">Sign in</a> to leave a comment.
+      </p>
+    <% } %>
+
+    <% if (it.comments.length === 0) { %>
+      <p class="text-sm text-slate-400">No comments yet. Be the first!</p>
+    <% } else { %>
+      <ul class="space-y-4">
+        <% it.comments.forEach(function (cm) { %>
+          <% const cmAvatar = cm.avatar_path ? "/uploads/" + cm.avatar_path.replace(/^uploads\//, "") : null; %>
+          <li class="flex gap-3">
+            <% if (cmAvatar) { %>
+              <img src="<%= cmAvatar %>" alt="" class="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0" />
+            <% } else { %>
+              <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-sm text-slate-400 shrink-0">
+                <%= cm.username.charAt(0).toUpperCase() %>
+              </div>
+            <% } %>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm">
+                <a href="/profil/<%= cm.username %>" class="font-semibold text-indigo-600 hover:underline"><%= cm.username %></a>
+                <span class="text-xs text-slate-400 ml-2"><%= cm.created_at %></span>
+              </p>
+              <p class="text-sm text-slate-700 whitespace-pre-line break-words"><%= cm.body %></p>
+            </div>
+            <% if (it.user && (it.user.id === cm.user_id || it.user.id === it.karya.user_id)) { %>
+              <form method="post" action="/karya/<%= it.karya.id %>/comments/<%= cm.id %>/delete"
+                onsubmit="return confirm('Delete this comment?')" class="shrink-0">
+                <button type="submit" class="text-xs text-red-600 hover:underline">Delete</button>
+              </form>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
 </div>
 
 <script src="/customizer.js"></script>

@@ -3,6 +3,7 @@ import type { Db } from "../db";
 import type { AppEnv } from "../view";
 import { injectLocals } from "../middleware/locals.middleware";
 import { authController } from "../controllers/auth.controller";
+import { profilController } from "../controllers/profil.controller";
 import { pageController } from "../controllers/page.controller";
 import {
   karyaAdminController,
@@ -18,6 +19,7 @@ export function web(db: Db) {
 
   app.route("/", pageController(db)); // homepage + profile
   app.route("/admin", authController(db)); // /admin/login, /admin/register, /admin/logout
+  app.route("/admin", profilController(db)); // /admin/profil*
   app.route("/admin", karyaAdminController(db)); // /admin/karya*
   app.route("/", karyaPublicController(db)); // /karya/:id + like
 

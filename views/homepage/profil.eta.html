@@ -1,12 +1,22 @@
 <% layout("/layouts/homepage") %>
 <% it.title = it.profil.username + " — CoSign" %>
+<% const avatar = it.profil.avatar_path ? "/uploads/" + it.profil.avatar_path.replace(/^uploads\//, "") : null; %>
 
-<div class="max-w-3xl mx-auto mb-10">
-  <h1 class="text-2xl font-bold"><%= it.profil.full_name || it.profil.username %></h1>
-  <p class="text-sm text-slate-500">@<%= it.profil.username %></p>
-  <% if (it.profil.bio) { %>
-    <p class="mt-2 text-slate-600 text-sm"><%= it.profil.bio %></p>
+<div class="max-w-3xl mx-auto mb-10 flex items-center gap-5">
+  <% if (avatar) { %>
+    <img src="<%= avatar %>" alt="Avatar" class="w-20 h-20 rounded-full object-cover border border-slate-200" />
+  <% } else { %>
+    <div class="w-20 h-20 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl text-slate-400">
+      <%= it.profil.username.charAt(0).toUpperCase() %>
+    </div>
   <% } %>
+  <div>
+    <h1 class="text-2xl font-bold"><%= it.profil.full_name || it.profil.username %></h1>
+    <p class="text-sm text-slate-500">@<%= it.profil.username %></p>
+    <% if (it.profil.bio) { %>
+      <p class="mt-2 text-slate-600 text-sm"><%= it.profil.bio %></p>
+    <% } %>
+  </div>
 </div>
 
 <% if (it.karya.length === 0) { %>
