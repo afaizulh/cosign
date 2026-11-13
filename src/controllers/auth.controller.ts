@@ -7,7 +7,11 @@ import {
   redirectIfAuthenticated,
   requireAuth,
 } from "../middleware/auth.middleware";
+import { rateLimit } from "../middleware/rate-limit.middleware";
 import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
+
+// 10 attempts / 15 min per IP for auth endpoints (brute-force protection).
+const authLimiter = () => rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
 /** Controller: /admin/auth — register, login, logout (form POST). */
 export function authController(db: Db) {
@@ -24,7 +28,7 @@ export function authController(db: Db) {
     view(c, "admin/auth/login", { errors: null, old: {} })
   );
 
-  app.post("/login", redirectIfAuthenticated(db), async (c) => {
+  app.post("/login", authLimiter(), redirectIfAuthenticated(db), async (c) => {
     const body = await c.req.parseBody();
     const username = String(body.username ?? "").trim();
     const password = String(body.password ?? "");
@@ -46,7 +50,7 @@ export function authController(db: Db) {
     view(c, "admin/auth/register", { errors: null, old: {} })
   );
 
-  app.post("/register", redirectIfAuthenticated(db), async (c) => {
+  app.post("/register", authLimiter(), redirectIfAuthenticated(db), async (c) => {
     const body = await c.req.parseBody();
     const username = String(body.username ?? "").trim();
     const password = String(body.password ?? "");

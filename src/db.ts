@@ -78,11 +78,23 @@ export function migrate(db: Database) {
     );
   `);
 
-  // Migrate old karya schema (media_path/media_type column) → karya_parts
+  // Migrate old karya schema (media_path/media_type columns on karya) → karya_parts.
+  // Copy existing media into karya_parts FIRST, then drop the old columns —
+  // dropping without copying would destroy legacy images. Wrapped in a
+  // transaction so a failure leaves the old columns/data intact.
   const cols = db.query("PRAGMA table_info(karya)").all() as { name: string }[];
   if (cols.some((c) => c.name === "media_path")) {
-    db.exec(
-      "ALTER TABLE karya DROP COLUMN media_path; ALTER TABLE karya DROP COLUMN media_type;"
-    );
+    db.transaction(() => {
+      const hasMediaType = cols.some((c) => c.name === "media_type");
+      db.exec(`
+        INSERT INTO karya_parts (id, karya_id, kategori, media_path, media_type, created_at)
+        SELECT lower(hex(randomblob(16))), id, 'background', media_path,
+               ${hasMediaType ? "media_type" : "NULL"}, created_at
+        FROM karya
+        WHERE media_path IS NOT NULL AND media_path != ''
+      `);
+      db.exec("ALTER TABLE karya DROP COLUMN media_path;");
+      if (hasMediaType) db.exec("ALTER TABLE karya DROP COLUMN media_type;");
+    })();
   }
 }

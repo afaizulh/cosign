@@ -14,13 +14,34 @@
   </div>
 </header>
 
+<% const qs = function (k) {
+  const p = new URLSearchParams();
+  if (k) p.set("kategori", k);
+  if (it.q) p.set("q", it.q);
+  if (it.sort && it.sort !== "newest") p.set("sort", it.sort);
+  const s = p.toString();
+  return s ? "/?" + s : "/";
+}; %>
+
+<form method="get" action="/" class="flex flex-wrap justify-center gap-2 mb-4">
+  <% if (it.aktif) { %><input type="hidden" name="kategori" value="<%= it.aktif %>" /><% } %>
+  <input type="search" name="q" value="<%= it.q %>" placeholder="Search works or creators…"
+    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-64" />
+  <select name="sort" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+    <option value="newest" <%= it.sort === "newest" ? "selected" : "" %>>Newest</option>
+    <option value="popular" <%= it.sort === "popular" ? "selected" : "" %>>Most liked</option>
+    <option value="oldest" <%= it.sort === "oldest" ? "selected" : "" %>>Oldest</option>
+  </select>
+  <button type="submit" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">Search</button>
+</form>
+
 <div class="flex flex-wrap justify-center gap-2 mb-8">
-  <a href="/"
+  <a href="<%= qs('') %>"
     class="<%= it.aktif === '' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100' %> px-4 py-1.5 rounded-full text-sm font-medium">
     All
   </a>
   <% it.kategoriList.forEach(function (k) { %>
-    <a href="/?kategori=<%= k %>"
+    <a href="<%= qs(k) %>"
       class="<%= it.aktif === k ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100' %> px-4 py-1.5 rounded-full text-sm font-medium">
       <%= k %>
     </a>
@@ -28,7 +49,7 @@
 </div>
 
 <% if (it.karya.length === 0) { %>
-  <p class="text-center text-slate-500 py-10">No works here yet. Be the first to share!</p>
+  <p class="text-center text-slate-500 py-10"><%= it.q ? "No works match your search." : "No works here yet. Be the first to share!" %></p>
 <% } else { %>
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
     <% it.karya.forEach(function (k) { %>

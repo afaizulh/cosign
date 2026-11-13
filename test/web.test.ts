@@ -257,6 +257,7 @@ describe("Web — karya (auth)", () => {
     expect(detailHtml).toContain('data-layer="background"');
     expect(detailHtml).toContain("/customizer.js");
     expect(detailHtml).toContain('data-kategori="kepala"');
+    expect(detailHtml).toContain('id="export-png"');
     expect(detailHtml).not.toContain("/uploads/uploads/");
 
     // Like toggles + count updates
@@ -445,6 +446,47 @@ describe("Web — public pages", () => {
     expect(await res.text()).toContain("/admin/login");
   });
 
+  test("like state: liked karya shows 'Liked' button for that user only", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Like State", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const before = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(before).toContain('aria-pressed="false"');
+    expect(before).toContain("♥ Like");
+
+    await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    const after = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(after).toContain('aria-pressed="true"');
+    expect(after).toContain("♥ Liked");
+
+    const guest = await (await app.request(`/karya/${karyaId}`)).text();
+    expect(guest).toContain('href="/admin/login"');
+
+    // Toggle back off
+    await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+    const unliked = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(unliked).toContain('aria-pressed="false"');
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+  });
+
   test("GET /profil/:username → 200 with works; unknown → redirect /", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
@@ -494,6 +536,132 @@ describe("Web — public pages", () => {
     const filtered = await (await app.request("/?kategori=desain")).text();
     expect(filtered).toContain("Desain Satu");
     expect(filtered).not.toContain("Motion Dua");
+  });
+
+  test("POST /admin/karya with invalid kategori falls back to 'lainnya'", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const res = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Sneaky", deskripsi: "", kategori: "hacker" }).toString(),
+    });
+    expect(res.status).toBe(302);
+    const loc = res.headers.get("location")!;
+    expect(loc).toMatch(/^\/admin\/karya\/[^/]+$/);
+
+    const list = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    expect(list).toContain("Sneaky");
+    expect(list).toContain("lainnya");
+    expect(list).not.toContain("hacker");
+  });
+});
+
+describe("Web — edit karya", () => {
+  test("owner edits title/description/category", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Old Title", deskripsi: "old", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "New Title", deskripsi: "new desc", kategori: "motion" }).toString(),
+    });
+    expect(edit.status).toBe(302);
+    expect(edit.headers.get("location")).toBe(`/admin/karya/${karyaId}`);
+
+    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(manage).toContain("New Title");
+    expect(manage).toContain("new desc");
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("New Title");
+    expect(home).not.toContain("Old Title");
+  });
+
+  test("edit without title → flash error, unchanged", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Keep Me", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "  ", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    expect(edit.status).toBe(302);
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("Keep Me");
+  });
+
+  test("owner guard: other user cannot edit", async () => {
+    const app = createTestApp();
+    const cookie1 = await registerUser(app, "owner1");
+    const cookie2 = await registerUser(app, "owner2");
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie: cookie1, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Mine", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+      method: "POST",
+      headers: { cookie: cookie2, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Hacked", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    expect(edit.status).toBe(302);
+    expect(edit.headers.get("location")).toBe("/admin/karya");
+
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("Mine");
+    expect(home).not.toContain("Hacked");
+  });
+});
+
+describe("Web — search & sort", () => {
+  test("search filters by title; sort popular orders by likes", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const mk = (judul: string) =>
+      app.request("/admin/karya", {
+        method: "POST",
+        headers: { cookie, ...formPostHeaders },
+        body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+      });
+    const alpha = await mk("Alpha Work");
+    const beta = await mk("Beta Work");
+    const betaId = beta.headers.get("location")!.split("/").pop()!;
+    void alpha;
+
+    await app.request(`/karya/${betaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    const search = await (await app.request("/?q=Alpha")).text();
+    expect(search).toContain("Alpha Work");
+    expect(search).not.toContain("Beta Work");
+
+    const popular = await (await app.request("/?sort=popular")).text();
+    expect(popular.indexOf("Beta Work")).toBeLessThan(popular.indexOf("Alpha Work"));
   });
 });
 

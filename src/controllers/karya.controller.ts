@@ -52,10 +52,13 @@ export function karyaAdminController(db: Db) {
   // GET /admin/karya — my works + create form
   app.get("/karya", requireAuth(db), (c) => {
     const userId = c.get("userId");
-    const items = karya.byUser(userId).map((row) => {
-      const k = row as Record<string, unknown>;
-      return { ...k, part_count: karya.parts(String(k.id)).length };
-    });
+    const rows = karya.byUser(userId) as Array<Record<string, unknown>>;
+    // One batch query for all part counts instead of one per karya (N+1).
+    const partsByKarya = karya.partsForMany(rows.map((k) => String(k.id)));
+    const items = rows.map((k) => ({
+      ...k,
+      part_count: (partsByKarya[String(k.id)] ?? []).length,
+    }));
     return view(c, "admin/karya/index", { karya: items, kategoriList: KATEGORI_LIST });
   });
 
@@ -64,7 +67,10 @@ export function karyaAdminController(db: Db) {
     const body = await c.req.parseBody();
     const judul = String(body.judul ?? "").trim();
     const deskripsi = String(body.deskripsi ?? "").trim();
-    const kategori = String(body.kategori ?? "lainnya").trim();
+    let kategori = String(body.kategori ?? "lainnya").trim();
+    if (!KATEGORI_LIST.includes(kategori)) {
+      kategori = "lainnya";
+    }
     if (!judul) {
       flashError(c, "Title is required.");
       return redirect(c, "/admin/karya");
@@ -91,7 +97,32 @@ export function karyaAdminController(db: Db) {
       karya: item,
       byCategory: partsByCategory(parts),
       kategoriList: PART_KATEGORI,
+      workKategoriList: KATEGORI_LIST,
     });
+  });
+
+  // POST /admin/karya/:id/edit — update title, description & category
+  app.post("/karya/:id/edit", requireAuth(db), async (c) => {
+    const id = c.req.param("id")!;
+    const item = karya.findById(id);
+    if (!item || !isOwner(item, c.get("userId") as string)) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/karya");
+    }
+    const body = await c.req.parseBody();
+    const judul = String(body.judul ?? "").trim();
+    const deskripsi = String(body.deskripsi ?? "").trim();
+    let kategori = String(body.kategori ?? "lainnya").trim();
+    if (!KATEGORI_LIST.includes(kategori)) {
+      kategori = "lainnya";
+    }
+    if (!judul) {
+      flashError(c, "Title is required.");
+      return redirect(c, `/admin/karya/${id}`);
+    }
+    karya.update(id, { judul, deskripsi, kategori });
+    flashSuccess(c, "Work updated.");
+    return redirect(c, `/admin/karya/${id}`);
   });
 
   // POST /admin/karya/:id/parts — upload a part image
@@ -213,10 +244,12 @@ export function karyaPublicController(db: Db) {
       return redirect(c, "/");
     }
     const parts = karya.parts(item.id);
+    const user = c.get("user" as never) as { id: string } | null;
     const data = {
       ...item,
       parts: latestParts(parts),
       like_count: karya.likeCount(item.id),
+      liked: user ? karya.hasLiked(item.id, user.id) : false,
     };
     return view(c, "homepage/karya", {
       karya: data,
