@@ -19,6 +19,14 @@ export class UserModel {
       .get(username) as { id: string; username: string; password_hash: string } | null;
   }
 
+  /** True if a username is taken, ignoring case ("Admin" matches "admin"). */
+  usernameExists(username: string): boolean {
+    const row = this.db
+      .query("SELECT 1 FROM users WHERE lower(username) = lower(?)")
+      .get(username);
+    return row !== null;
+  }
+
   /** Public user data by id (no password). */
   findPublic(id: string): PublicUser | null {
     return this.db

@@ -19,13 +19,13 @@ export function partsByCategory(parts: KaryaPart[]): Record<string, KaryaPart[]>
 }
 
 /** Attach composition (latest parts + like count) to a list of karya rows. */
-export function withComposition(
-  items: Array<Record<string, unknown>>,
-  karya: KaryaModel
-): Array<Record<string, unknown>> {
-  return items.map((k) => ({
-    ...k,
-    parts: latestParts(karya.parts(String(k.id))),
-    like_count: karya.likeCount(String(k.id)),
-  }));
+export function withComposition(items: unknown[], karya: KaryaModel) {
+  return items.map((row) => {
+    const k = row as Record<string, unknown>;
+    return {
+      ...k,
+      parts: latestParts(karya.parts(String(k.id))),
+      like_count: karya.likeCount(String(k.id)),
+    };
+  });
 }

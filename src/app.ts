@@ -5,11 +5,12 @@ import { secureHeaders } from "hono/secure-headers";
 import { csrf } from "hono/csrf";
 import { serveStatic } from "hono/bun";
 import type { Db } from "./db";
+import type { AppEnv } from "./view";
 import { web } from "./routes/web";
 
 /** Build the full Hono app from a DB instance — used by server & unit tests. */
 export function createApp(db: Db) {
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
 
   // --- middleware ---
   app.use("*", logger());

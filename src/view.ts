@@ -1,5 +1,6 @@
 import { Eta } from "eta";
 import path from "path";
+import { env } from "bun";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Context } from "hono";
 import type { PublicUser } from "./models/user.model";
@@ -8,20 +9,30 @@ import type { PublicUser } from "./models/user.model";
 const eta = new Eta({
   views: path.join(import.meta.dir, "..", "views"),
   defaultExtension: ".eta.html",
-  cache: false,
+  // Cache compiled templates in production only; dev keeps hot-reload behaviour.
+  cache: env.NODE_ENV === "production",
   autoEscape: true,
 });
 
 export type Flash = { type: "success" | "error"; message: string } | null;
 
+/** Hono context variables set by middleware (typed `c.get`). */
+export type AppEnv = {
+  Variables: {
+    user: PublicUser | null;
+    flash: Flash;
+    userId: string;
+  };
+};
+
 /** Render Eta template → HTML response. Laravel-like `return view(...)`. */
 export function view(
-  c: Context,
+  c: Context<AppEnv>,
   template: string,
   data: Record<string, unknown> = {}
 ) {
-  const user = c.get("user" as never) as PublicUser | null;
-  const flash = c.get("flash" as never) as Flash;
+  const user = c.get("user");
+  const flash = c.get("flash");
   return c.html(
     eta.render(template, {
       user,

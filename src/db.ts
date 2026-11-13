@@ -19,6 +19,8 @@ export async function initDb(): Promise<Db> {
   const driver = (env.DB_DRIVER || "sqlite") as Driver;
 
   if (driver === "supabase") {
+    // Optional dependency — install with `bun add @supabase/supabase-js` before using this driver.
+    // @ts-expect-error optional module, absent in sqlite-only installs
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(env.SUPABASE_URL!, env.SUPABASE_ANON_KEY!);
     return { driver, sqlite: null, supabase };
