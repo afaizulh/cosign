@@ -230,6 +230,20 @@ export class KaryaModel {
     return map;
   }
 
+  /** 3D asset counts for many karya in one query, keyed by karya_id. */
+  assetCountsForMany(karyaIds: string[]): Record<string, number> {
+    const map: Record<string, number> = {};
+    if (karyaIds.length === 0) return map;
+    const placeholders = karyaIds.map(() => "?").join(",");
+    const rows = this.db
+      .query(
+        `SELECT karya_id, COUNT(*) AS n FROM karya_assets WHERE karya_id IN (${placeholders}) GROUP BY karya_id`
+      )
+      .all(...karyaIds) as { karya_id: string; n: number }[];
+    for (const r of rows) map[r.karya_id] = r.n;
+    return map;
+  }
+
   /** Like counts for many karya in one query, keyed by karya_id. */
   likeCountsForMany(karyaIds: string[]): Record<string, number> {
     const map: Record<string, number> = {};

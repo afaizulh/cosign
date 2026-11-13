@@ -56,13 +56,20 @@
             <span class="ml-2 text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><%= k.kategori %></span>
             <span class="ml-1 text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase"><%= k.tipe %></span>
           </p>
-          <p class="text-xs text-slate-400"><%= k.part_count %> parts · Created <%= k.created_at %></p>
+          <p class="text-xs text-slate-400">
+            <% if (k.tipe === "3d") { %><%= k.asset_count %> <%= k.asset_count === 1 ? "asset" : "assets" %>
+            <% } else { %><%= k.part_count %> parts<% } %> · Created <%= k.created_at %>
+          </p>
         </div>
         <div class="flex items-center gap-3">
           <a href="/karya/<%= k.id %>" target="_blank" rel="noopener" class="text-slate-500 hover:underline text-sm">View</a>
-          <a href="/admin/karya/<%= k.id %>" class="text-indigo-600 hover:underline text-sm">Manage Parts</a>
+          <% if (k.tipe === "3d") { %>
+            <a href="/admin/karya/<%= k.id %>/3d" class="text-indigo-600 hover:underline text-sm">Manage Assets</a>
+          <% } else { %>
+            <a href="/admin/karya/<%= k.id %>" class="text-indigo-600 hover:underline text-sm">Manage Parts</a>
+          <% } %>
           <form method="post" action="/admin/karya/<%= k.id %>/delete" class="inline"
-            onsubmit="return confirm('Delete this work? All parts will be removed.')">
+            onsubmit="return confirm('Delete this work? All parts & assets will be removed.')">
             <button type="submit" class="text-red-600 hover:underline text-sm">Delete</button>
           </form>
         </div>
