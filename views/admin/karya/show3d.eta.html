@@ -1,0 +1,77 @@
+<% layout("/layouts/admin") %>
+<% it.title = "Manage 3D Assets — " + it.karya.judul %>
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold"><%= it.karya.judul %></h1>
+    <p class="text-xs text-slate-400">Upload 3D assets for this work. Allowed: GLB, GLTF, OBJ, FBX, STL, USDZ (max 50MB).</p>
+  </div>
+  <a href="/admin/karya" class="text-sm text-slate-500 hover:text-slate-700">← My Work</a>
+</div>
+
+<details class="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+  <summary class="font-semibold cursor-pointer list-none">Edit details</summary>
+  <form method="post" action="/admin/karya/<%= it.karya.id %>/edit" class="space-y-3 mt-4">
+    <div>
+      <label class="block text-sm font-medium mb-1">Title</label>
+      <input name="judul" required value="<%= it.karya.judul %>"
+        class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Description</label>
+      <textarea name="deskripsi" rows="3"
+        class="w-full border border-slate-300 rounded-lg px-3 py-2"><%= it.karya.deskripsi || "" %></textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Category</label>
+      <select name="kategori" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+        <% it.workKategoriList.forEach(function (k) { %>
+          <option value="<%= k %>" <%= it.karya.kategori === k ? "selected" : "" %>><%= k %></option>
+        <% }) %>
+      </select>
+    </div>
+    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Save changes</button>
+  </form>
+</details>
+
+<section class="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+  <h2 class="font-semibold mb-1">Upload 3D asset</h2>
+  <form method="post" action="/admin/karya/<%= it.karya.id %>/3d" enctype="multipart/form-data"
+    class="flex flex-wrap items-end gap-3 mt-3">
+    <div class="flex-1 min-w-[12rem]">
+      <label class="block text-sm font-medium mb-1">Asset name (optional)</label>
+      <input name="nama" placeholder="e.g. Main model"
+        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+    </div>
+    <input type="file" name="media" accept=".glb,.gltf,.obj,.fbx,.stl,.usdz" required
+      class="border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Upload</button>
+  </form>
+
+  <% if (it.assets.length === 0) { %>
+    <p class="text-xs text-slate-400 mt-3">No 3D assets yet.</p>
+  <% } else { %>
+    <ul class="divide-y divide-slate-100 mt-4">
+      <% it.assets.forEach(function (a) { %>
+        <li class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="font-medium text-sm truncate"><%= a.nama || "Untitled asset" %></p>
+            <a href="/uploads/<%= a.media_path.replace(/^uploads\//, '') %>" target="_blank" rel="noopener"
+              class="text-xs text-indigo-600 hover:underline">Download</a>
+          </div>
+          <form method="post" action="/admin/karya/<%= it.karya.id %>/3d/<%= a.id %>/delete"
+            onsubmit="return confirm('Delete this asset?')">
+            <button type="submit" class="text-red-600 hover:underline text-sm">Delete</button>
+          </form>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+
+<div class="text-center">
+  <a href="/karya/<%= it.karya.id %>" target="_blank" rel="noopener"
+    class="inline-block bg-slate-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-slate-900">
+    Open Public Page →
+  </a>
+</div>

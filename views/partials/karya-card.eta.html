@@ -10,7 +10,9 @@
     <% if (it.k.parts && it.k.parts.kepala) { %>
       <img src="/uploads/<%= it.k.parts.kepala %>" alt="" class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain" />
     <% } %>
-    <% if (!it.k.parts || (!it.k.parts.kepala && !it.k.parts.badan && !it.k.parts.background)) { %>
+    <% if (it.k.tipe === "3d") { %>
+      <p class="absolute inset-0 flex items-center justify-center text-sm font-semibold text-indigo-500">3D</p>
+    <% } else if (!it.k.parts || (!it.k.parts.kepala && !it.k.parts.badan && !it.k.parts.background)) { %>
       <p class="absolute inset-0 flex items-center justify-center text-xs text-slate-400">No parts yet</p>
     <% } %>
   </div>

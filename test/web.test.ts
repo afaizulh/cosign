@@ -422,6 +422,141 @@ describe("Web — karya (auth)", () => {
   });
 });
 
+describe("Web — karya 3D", () => {
+  const GLB = new File(["glbdata"], "model.glb", { type: "model/gltf-binary" });
+
+  async function create3d(
+    app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
+    cookie: string
+  ) {
+    const res = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({
+        judul: "Model 3D",
+        deskripsi: "",
+        kategori: "desain",
+        tipe: "3d",
+      }).toString(),
+    });
+    const loc = res.headers.get("location")!;
+    return { res, loc, karyaId: loc.split("/")[3] };
+  }
+
+  test("create 3D work → redirect to 3D asset page; parts page redirects back", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const { res, loc, karyaId } = await create3d(app, cookie);
+
+    expect(res.status).toBe(302);
+    expect(loc).toBe(`/admin/karya/${karyaId}/3d`);
+
+    const page = await (await app.request(loc, { headers: { cookie } })).text();
+    expect(page).toContain("Upload 3D asset");
+    expect(page).toContain('accept=".glb,.gltf,.obj,.fbx,.stl,.usdz"');
+
+    const partsPage = await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } });
+    expect(partsPage.status).toBe(302);
+    expect(partsPage.headers.get("location")).toBe(loc);
+  });
+
+  test("create 2D work → redirect to parts page; 3D page redirects back", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const res = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Flat", deskripsi: "", kategori: "desain", tipe: "2d" }).toString(),
+    });
+    const loc = res.headers.get("location")!;
+    const karyaId = loc.split("/").pop()!;
+    expect(loc).toBe(`/admin/karya/${karyaId}`);
+
+    const threeD = await app.request(`/admin/karya/${karyaId}/3d`, { headers: { cookie } });
+    expect(threeD.status).toBe(302);
+    expect(threeD.headers.get("location")).toBe(loc);
+  });
+
+  test("upload 3D asset → listed, public page, delete removes file", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const { loc, karyaId } = await create3d(app, cookie);
+
+    const form = new FormData();
+    form.append("nama", "Main model");
+    form.append("media", GLB);
+    const up = await app.request(`/admin/karya/${karyaId}/3d`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+      body: form,
+    });
+    expect(up.status).toBe(302);
+    expect(up.headers.get("location")).toBe(loc);
+
+    const page = await (await app.request(loc, { headers: { cookie } })).text();
+    expect(page).toContain("Main model");
+    const file = page.match(/\/uploads\/([0-9a-f-]+\.glb)/)?.[1];
+    expect(file).toBeTruthy();
+
+    // Admin list shows asset count + Manage Assets for 3D works
+    const list = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    expect(list).toContain("1 asset");
+    expect(list).toContain("Manage Assets");
+    expect(list).toContain(`/admin/karya/${karyaId}/3d`);
+
+    const pub = await (await app.request(`/karya/${karyaId}`)).text();
+    expect(pub).toContain("3D assets");
+    expect(pub).toContain("Main model");
+
+    const assetId = page.match(/\/3d\/([0-9a-f-]+)\/delete/)?.[1];
+    expect(assetId).toBeTruthy();
+    const del = await app.request(`/admin/karya/${karyaId}/3d/${assetId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+    expect(del.status).toBe(302);
+    expect(() => unlinkSync(`uploads/${file}`)).toThrow();
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+  });
+
+  test("upload non-3D file → flash error", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const { loc, karyaId } = await create3d(app, cookie);
+
+    const form = new FormData();
+    form.append("media", new File(["hello"], "notes.txt", { type: "text/plain" }));
+    const up = await app.request(`/admin/karya/${karyaId}/3d`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+      body: form,
+    });
+    expect(up.status).toBe(302);
+
+    const sidCookie = cookie.split(";")[0];
+    const page = await app.request(loc, {
+      headers: { cookie: `${sidCookie}; ${cookieFrom(up)}` },
+    });
+    expect(await page.text()).toContain("Only 3D files are allowed");
+  });
+
+  test("owner guard: other user cannot open 3D page", async () => {
+    const app = createTestApp();
+    const cookie1 = await registerUser(app, "owner1");
+    const cookie2 = await registerUser(app, "owner2");
+    const { loc } = await create3d(app, cookie1);
+
+    const res = await app.request(loc, { headers: { cookie: cookie2 } });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/admin/karya");
+  });
+});
+
 describe("Web — public pages", () => {
   test("GET /karya/:id not found → redirect /", async () => {
     const app = createTestApp();

@@ -123,13 +123,18 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 | POST | `/admin/profil/avatar/delete` | hapus avatar | ✓ |
 | GET | `/admin/karya` | `admin/karya/index` — karya saya + form buat | ✓ |
 | POST | `/admin/karya` | buat karya (judul, deskripsi, kategori) | ✓ |
-| GET | `/admin/karya/:id` | `admin/karya/show` — kelola parts | ✓ (owner) |
+| GET | `/admin/karya/:id` | `admin/karya/show` — kelola parts (2D) | ✓ (owner) |
 | POST | `/admin/karya/:id/parts` | upload part gambar (kepala/badan/background) | ✓ (owner) |
 | POST | `/admin/karya/:id/parts/:pid/delete` | hapus part | ✓ (owner) |
-| POST | `/admin/karya/:id/delete` | hapus karya + semua file part | ✓ (owner) |
+| GET | `/admin/karya/:id/3d` | `admin/karya/show3d` — kelola asset 3D | ✓ (owner) |
+| POST | `/admin/karya/:id/3d` | upload asset 3D (GLB/GLTF/OBJ/FBX/STL/USDZ) | ✓ (owner) |
+| POST | `/admin/karya/:id/3d/:aid/delete` | hapus asset 3D | ✓ (owner) |
+| POST | `/admin/karya/:id/delete` | hapus karya + semua file part/asset | ✓ (owner) |
 
-Semua mutasi via form POST (PRG). Upload gambar (part & avatar) divalidasi:
-hanya `image/jpeg|png|gif|webp`, maksimal **20MB**, disimpan sebagai
+Semua mutasi via form POST (PRG). Karya punya `tipe` **2d** (part gambar) atau
+**3d** (asset 3D). Upload gambar (part & avatar) divalidasi: hanya
+`image/jpeg|png|gif|webp`, maksimal **20MB**. Upload asset 3D divalidasi lewat
+ekstensi `glb|gltf|obj|fbx|stl|usdz`, maksimal **50MB**. Semua file disimpan sebagai
 `uploads/<uuid>.<ext>`. Kategori part: `kepala`, `badan`, `background`.
 Komentar maks 1000 karakter; hanya penulis komentar atau pemilik karya yang
 bisa menghapusnya.
