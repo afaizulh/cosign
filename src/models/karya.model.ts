@@ -10,6 +10,15 @@ export type KaryaPart = {
   created_at: string;
 };
 
+export type KaryaAsset = {
+  id: string;
+  karya_id: string;
+  nama: string | null;
+  media_path: string;
+  media_type: string | null;
+  created_at: string;
+};
+
 /** Model: karya + karya_parts + likes. */
 export class KaryaModel {
   constructor(private db: Database) {}
@@ -59,23 +68,24 @@ export class KaryaModel {
     return this.db
       .query("SELECT k.*, u.username FROM karya k JOIN users u ON u.id = k.user_id WHERE k.id = ?")
       .get(id) as
-      | { id: string; user_id: string; judul: string; deskripsi: string | null; kategori: string | null; username: string }
+      | { id: string; user_id: string; judul: string; deskripsi: string | null; kategori: string | null; tipe: string; username: string }
       | null;
   }
 
-  /** Create new karya (no media — parts are added separately), return id. */
+  /** Create new karya (no media — parts/assets are added separately), return id. */
   create(data: {
     userId: string;
     judul: string;
     deskripsi: string;
     kategori: string;
+    tipe?: string;
   }): string {
     const id = randomUUID();
     this.db
       .query(
-        "INSERT INTO karya (id, user_id, judul, deskripsi, kategori) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO karya (id, user_id, judul, deskripsi, kategori, tipe) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .run(id, data.userId, data.judul, data.deskripsi, data.kategori);
+      .run(id, data.userId, data.judul, data.deskripsi, data.kategori, data.tipe ?? "2d");
     return id;
   }
 
@@ -131,6 +141,43 @@ export class KaryaModel {
   /** Delete one part. */
   deletePart(partId: string) {
     this.db.query("DELETE FROM karya_parts WHERE id = ?").run(partId);
+  }
+
+  // --- 3D assets ---
+
+  /** List 3D assets of one karya (newest first). */
+  assets(karyaId: string): KaryaAsset[] {
+    return this.db
+      .query("SELECT * FROM karya_assets WHERE karya_id = ? ORDER BY created_at DESC, id DESC")
+      .all(karyaId) as KaryaAsset[];
+  }
+
+  /** Add a 3D asset to a karya, return id. */
+  addAsset(data: {
+    karyaId: string;
+    nama: string;
+    mediaPath: string;
+    mediaType: string;
+  }): string {
+    const id = randomUUID();
+    this.db
+      .query(
+        "INSERT INTO karya_assets (id, karya_id, nama, media_path, media_type) VALUES (?, ?, ?, ?, ?)"
+      )
+      .run(id, data.karyaId, data.nama, data.mediaPath, data.mediaType);
+    return id;
+  }
+
+  /** Find one asset (for delete + file cleanup). */
+  findAsset(assetId: string): KaryaAsset | null {
+    return this.db
+      .query("SELECT * FROM karya_assets WHERE id = ?")
+      .get(assetId) as KaryaAsset | null;
+  }
+
+  /** Delete one asset. */
+  deleteAsset(assetId: string) {
+    this.db.query("DELETE FROM karya_assets WHERE id = ?").run(assetId);
   }
 
   // --- likes ---

@@ -57,6 +57,7 @@ export function migrate(db: Database) {
       judul TEXT NOT NULL,
       deskripsi TEXT,
       kategori TEXT,
+      tipe TEXT NOT NULL DEFAULT '2d',   -- '2d' | '3d'
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -74,7 +75,22 @@ export function migrate(db: Database) {
       user_id TEXT NOT NULL,
       PRIMARY KEY (karya_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS karya_assets (
+      id TEXT PRIMARY KEY,
+      karya_id TEXT NOT NULL,
+      nama TEXT,
+      media_path TEXT NOT NULL,
+      media_type TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
+
+  // Add `tipe` to existing karya tables created before the 2D/3D split.
+  const karyaCols = db.query("PRAGMA table_info(karya)").all() as { name: string }[];
+  if (!karyaCols.some((c) => c.name === "tipe")) {
+    db.exec("ALTER TABLE karya ADD COLUMN tipe TEXT NOT NULL DEFAULT '2d';");
+  }
 
   // Migrate old karya schema (media_path/media_type columns on karya) → karya_parts.
   // Copy existing media into karya_parts FIRST, then drop the old columns —
