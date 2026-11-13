@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { randomUUID } from "crypto";
 import { unlinkSync, existsSync } from "fs";
 import type { Db } from "../db";
 import { KaryaModel } from "../models/karya.model";
@@ -116,7 +117,7 @@ export function karyaAdminController(db: Db) {
 
   // GET /admin/karya/:id/3d — manage 3D assets
   app.get("/karya/:id/3d", requireAuth(db), (c) => {
-    const item = karya.findById(c.req.param("id"));
+    const item = karya.findById(c.req.param("id")!);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
       return redirect(c, "/admin/karya");
@@ -133,7 +134,7 @@ export function karyaAdminController(db: Db) {
 
   // POST /admin/karya/:id/3d — upload a 3D asset
   app.post("/karya/:id/3d", requireAuth(db), async (c) => {
-    const id = c.req.param("id");
+    const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
@@ -172,13 +173,13 @@ export function karyaAdminController(db: Db) {
 
   // POST /admin/karya/:id/3d/:aid/delete — remove one 3D asset
   app.post("/karya/:id/3d/:aid/delete", requireAuth(db), (c) => {
-    const id = c.req.param("id");
+    const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
       return redirect(c, "/admin/karya");
     }
-    const asset = karya.findAsset(c.req.param("aid"));
+    const asset = karya.findAsset(c.req.param("aid")!);
     if (!asset || asset.karya_id !== id) {
       flashError(c, "Asset not found.");
       return redirect(c, `/admin/karya/${id}/3d`);

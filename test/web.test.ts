@@ -426,7 +426,7 @@ describe("Web — karya 3D", () => {
   const GLB = new File(["glbdata"], "model.glb", { type: "model/gltf-binary" });
 
   async function create3d(
-    app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+    app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
     cookie: string
   ) {
     const res = await app.request("/admin/karya", {
