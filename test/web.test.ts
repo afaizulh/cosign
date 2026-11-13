@@ -216,6 +216,7 @@ describe("Web — karya (auth)", () => {
     expect(detailHtml).toContain('data-layer="background"');
     expect(detailHtml).toContain("/customizer.js");
     expect(detailHtml).toContain('data-kategori="kepala"');
+    expect(detailHtml).toContain('id="export-png"');
     expect(detailHtml).not.toContain("/uploads/uploads/");
 
     // Like toggles + count updates
@@ -371,6 +372,47 @@ describe("Web — public pages", () => {
     const res = await app.request(`/karya/${karyaId}`);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("/admin/login");
+  });
+
+  test("like state: liked karya shows 'Liked' button for that user only", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+
+    const create = await app.request("/admin/karya", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Like State", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    const before = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(before).toContain('aria-pressed="false"');
+    expect(before).toContain("♥ Like");
+
+    await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+
+    const after = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(after).toContain('aria-pressed="true"');
+    expect(after).toContain("♥ Liked");
+
+    const guest = await (await app.request(`/karya/${karyaId}`)).text();
+    expect(guest).toContain('href="/admin/login"');
+
+    // Toggle back off
+    await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+    const unliked = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(unliked).toContain('aria-pressed="false"');
+
+    await app.request(`/admin/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
   });
 
   test("GET /profil/:username → 200 with works; unknown → redirect /", async () => {

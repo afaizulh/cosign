@@ -152,6 +152,13 @@ export class KaryaModel {
     return true;
   }
 
+  /** Whether a user has liked a karya. */
+  hasLiked(karyaId: string, userId: string): boolean {
+    return !!this.db
+      .query("SELECT 1 FROM likes WHERE karya_id = ? AND user_id = ?")
+      .get(karyaId, userId);
+  }
+
   /** Number of likes on one karya. */
   likeCount(karyaId: string): number {
     const row = this.db

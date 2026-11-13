@@ -230,10 +230,12 @@ export function karyaPublicController(db: Db) {
       return redirect(c, "/");
     }
     const parts = karya.parts(item.id);
+    const user = c.get("user" as never) as { id: string } | null;
     const data = {
       ...item,
       parts: latestParts(parts),
       like_count: karya.likeCount(item.id),
+      liked: user ? karya.hasLiked(item.id, user.id) : false,
     };
     return view(c, "homepage/karya", {
       karya: data,

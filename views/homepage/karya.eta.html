@@ -16,14 +16,21 @@
     </div>
     <% if (it.user) { %>
       <form method="post" action="/karya/<%= it.karya.id %>/like">
-        <button type="submit" class="bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-pink-700">♥ Like</button>
+        <button type="submit" aria-pressed="<%= it.karya.liked ? 'true' : 'false' %>"
+          class="<%= it.karya.liked ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border border-pink-600 text-pink-600 hover:bg-pink-50' %> px-4 py-2 rounded-lg text-sm font-semibold">
+          <%= it.karya.liked ? "♥ Liked" : "♥ Like" %>
+        </button>
       </form>
     <% } else { %>
       <a href="/admin/login" class="bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-pink-700">♥ Like</a>
     <% } %>
   </div>
 
-  <p class="text-xs text-slate-400 mb-2">Click a part below to swap it into the composition. Toggle layers with the checkboxes.</p>
+  <div class="flex items-center justify-between gap-3 mb-2">
+    <p class="text-xs text-slate-400">Click a part below to swap it into the composition. Toggle layers with the checkboxes.</p>
+    <button type="button" id="export-png"
+      class="shrink-0 border border-slate-300 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-slate-100">Download PNG</button>
+  </div>
 
   <div class="grid md:grid-cols-[1fr_320px] gap-6">
     <!-- Composition preview -->
