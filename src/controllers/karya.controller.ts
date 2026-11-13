@@ -11,11 +11,28 @@ import { saveImage, MAX_UPLOAD_BODY } from "../uploads";
 import { KATEGORI_LIST } from "./page.controller";
 
 export const PART_KATEGORI = ["kepala", "badan", "background"];
+export const TIPE_LIST = ["2d", "3d"];
+const ASSET_EXTS = ["glb", "gltf", "obj", "fbx", "stl", "usdz"];
+const MAX_ASSET_SIZE = 50 * 1024 * 1024; // 50MB
+const UPLOAD_DIR = "uploads"; // must stay in sync with serveStatic /uploads/* in app.ts
 
 function isOwner(item: { user_id: string }, userId: string) {
   return item.user_id === userId;
 }
 
+/** Validate an uploaded 3D asset file (extension whitelist — MIME is unreliable). */
+function saveAsset(
+  file: File
+): { ok: true; path: string; ext: string } | { ok: false; error: string } {
+  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+  if (!ASSET_EXTS.includes(ext)) {
+    return { ok: false, error: "Only 3D files are allowed (GLB, GLTF, OBJ, FBX, STL, USDZ)." };
+  }
+  if (file.size > MAX_ASSET_SIZE) {
+    return { ok: false, error: "3D file size limit is 50MB." };
+  }
+  return { ok: true, path: `${UPLOAD_DIR}/${randomUUID()}.${ext}`, ext };
+}
 /**
  * Admin controller (mounted at /admin): manage karya & parts.
  * Internal paths are relative — mount at "/admin" → /admin/karya*.
@@ -52,6 +69,10 @@ export function karyaAdminController(db: Db) {
     if (!KATEGORI_LIST.includes(kategori)) {
       kategori = "lainnya";
     }
+    let tipe = String(body.tipe ?? "2d").trim();
+    if (!TIPE_LIST.includes(tipe)) {
+      tipe = "2d";
+    }
     if (!judul) {
       flashError(c, "Title is required.");
       return redirect(c, "/admin/karya");
@@ -61,7 +82,12 @@ export function karyaAdminController(db: Db) {
       judul,
       deskripsi,
       kategori,
+      tipe,
     });
+    if (tipe === "3d") {
+      flashSuccess(c, "Work created. Now upload your 3D assets.");
+      return redirect(c, `/admin/karya/${id}/3d`);
+    }
     flashSuccess(c, "Work created. Now add head, body & background images.");
     return redirect(c, `/admin/karya/${id}`);
   });
@@ -73,6 +99,9 @@ export function karyaAdminController(db: Db) {
       flashError(c, "Work not found.");
       return redirect(c, "/admin/karya");
     }
+    if (item.tipe === "3d") {
+      return redirect(c, `/admin/karya/${item.id}/3d`);
+    }
     const parts = karya.parts(item.id);
     return view(c, "admin/karya/show", {
       karya: item,
@@ -80,6 +109,85 @@ export function karyaAdminController(db: Db) {
       kategoriList: PART_KATEGORI,
       workKategoriList: KATEGORI_LIST,
     });
+  });
+
+  // GET /admin/karya/:id/3d — manage 3D assets
+  app.get("/karya/:id/3d", requireAuth(db), (c) => {
+    const item = karya.findById(c.req.param("id"));
+    if (!item || !isOwner(item, c.get("userId") as string)) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/karya");
+    }
+    if (item.tipe !== "3d") {
+      return redirect(c, `/admin/karya/${item.id}`);
+    }
+    return view(c, "admin/karya/show3d", {
+      karya: item,
+      assets: karya.assets(item.id),
+      workKategoriList: KATEGORI_LIST,
+    });
+  });
+
+  // POST /admin/karya/:id/3d — upload a 3D asset
+  app.post("/karya/:id/3d", requireAuth(db), async (c) => {
+    const id = c.req.param("id");
+    const item = karya.findById(id);
+    if (!item || !isOwner(item, c.get("userId") as string)) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/karya");
+    }
+    if (item.tipe !== "3d") {
+      return redirect(c, `/admin/karya/${item.id}`);
+    }
+    const body = await c.req.parseBody();
+    const nama = String(body.nama ?? "").trim();
+    const file = body.media;
+
+    if (!(file instanceof File)) {
+      flashError(c, "Choose a 3D file to upload.");
+      return redirect(c, `/admin/karya/${id}/3d`);
+    }
+    const saved = saveAsset(file);
+    if (!saved.ok) {
+      flashError(c, saved.error);
+      return redirect(c, `/admin/karya/${id}/3d`);
+    }
+    await Bun.write(saved.path, file);
+    if (!existsSync(saved.path)) {
+      flashError(c, "Failed to save the file on the server.");
+      return redirect(c, `/admin/karya/${id}/3d`);
+    }
+    karya.addAsset({
+      karyaId: id,
+      nama: nama || file.name,
+      mediaPath: saved.path,
+      mediaType: file.type || saved.ext,
+    });
+    flashSuccess(c, "3D asset uploaded.");
+    return redirect(c, `/admin/karya/${id}/3d`);
+  });
+
+  // POST /admin/karya/:id/3d/:aid/delete — remove one 3D asset
+  app.post("/karya/:id/3d/:aid/delete", requireAuth(db), (c) => {
+    const id = c.req.param("id");
+    const item = karya.findById(id);
+    if (!item || !isOwner(item, c.get("userId") as string)) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/karya");
+    }
+    const asset = karya.findAsset(c.req.param("aid"));
+    if (!asset || asset.karya_id !== id) {
+      flashError(c, "Asset not found.");
+      return redirect(c, `/admin/karya/${id}/3d`);
+    }
+    karya.deleteAsset(asset.id);
+    try {
+      unlinkSync(asset.media_path);
+    } catch {
+      // file already gone — ignore
+    }
+    flashSuccess(c, "3D asset deleted.");
+    return redirect(c, `/admin/karya/${id}/3d`);
   });
 
   // POST /admin/karya/:id/edit — update title, description & category
@@ -195,6 +303,13 @@ export function karyaAdminController(db: Db) {
         // ignore
       }
     }
+    for (const a of karya.assets(id)) {
+      try {
+        unlinkSync(a.media_path);
+      } catch {
+        // ignore
+      }
+    }
     new CommentModel(db.sqlite!).deleteByKarya(id);
     karya.delete(id);
     flashSuccess(c, "Work deleted.");
@@ -226,13 +341,23 @@ export function karyaPublicController(db: Db) {
       flashError(c, "Work not found.");
       return redirect(c, "/");
     }
-    const parts = karya.parts(item.id);
     const user = c.get("user" as never) as { id: string } | null;
+    const like_count = karya.likeCount(item.id);
+    const liked = user ? karya.hasLiked(item.id, user.id) : false;
+
+    if (item.tipe === "3d") {
+      return view(c, "homepage/karya-3d", {
+        karya: { ...item, like_count, liked },
+        assets: karya.assets(item.id),
+      });
+    }
+
+    const parts = karya.parts(item.id);
     const data = {
       ...item,
       parts: latestParts(parts),
-      like_count: karya.likeCount(item.id),
-      liked: user ? karya.hasLiked(item.id, user.id) : false,
+      like_count,
+      liked,
     };
     return view(c, "homepage/karya", {
       karya: data,

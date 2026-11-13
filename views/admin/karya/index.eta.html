@@ -25,7 +25,22 @@
           <% }) %>
         </select>
       </div>
-      <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg">Create & Manage Parts</button>
+      <fieldset>
+        <legend class="block text-sm font-medium mb-1">Work type</legend>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="border border-slate-300 rounded-lg px-3 py-2 text-sm cursor-pointer has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+            <input type="radio" name="tipe" value="2d" checked class="mr-1" />
+            2D parts
+            <span class="block text-xs text-slate-400">Head, body & background images</span>
+          </label>
+          <label class="border border-slate-300 rounded-lg px-3 py-2 text-sm cursor-pointer has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+            <input type="radio" name="tipe" value="3d" class="mr-1" />
+            3D assets
+            <span class="block text-xs text-slate-400">GLB, GLTF, OBJ, FBX, STL, USDZ</span>
+          </label>
+        </div>
+      </fieldset>
+      <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg">Create Work</button>
     </form>
   </details>
 </div>
@@ -39,6 +54,7 @@
         <div>
           <p class="font-semibold"><%= k.judul %>
             <span class="ml-2 text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><%= k.kategori %></span>
+            <span class="ml-1 text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase"><%= k.tipe %></span>
           </p>
           <p class="text-xs text-slate-400"><%= k.part_count %> parts · Created <%= k.created_at %></p>
         </div>
