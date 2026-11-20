@@ -6,14 +6,14 @@
 <div class="mb-5">
   <a href="/admin/works" class="text-xs font-semibold text-slate-500 hover:text-studio-navy"><i class="bx bx-arrow-back"></i> Back to works</a>
   <div class="flex flex-wrap items-center gap-2 mt-1">
-    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy"><%= raw.judul %></h1>
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy"><%= raw.judul %></h1>
     <% if (hidden) { %>
       <span class="text-[11px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">hidden</span>
     <% } else { %>
       <span class="text-[11px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">published</span>
     <% } %>
   </div>
-  <p class="text-sm text-slate-500 mt-0.5">
+  <p class="text-sm text-slate-500 mt-1">
     by <a href="/admin/users/<%= raw.user_id %>" class="font-semibold hover:underline">@<%= raw.username %></a>
     · <%= raw.kategori %> · <%= raw.tipe %> · created <%= raw.created_at %>
   </p>
@@ -51,7 +51,7 @@
   <!-- Moderation panel -->
   <div class="space-y-5">
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3">
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3">
         <i class="bx bx-shield-quarter text-lg text-red-500"></i> Moderation
       </h2>
       <% if (hidden) { %>
@@ -95,7 +95,7 @@
     </section>
 
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this work</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this work</h2>
       <% if (it.history.length === 0) { %>
         <p class="text-sm text-slate-400">No moderation actions on this work.</p>
       <% } else { %>

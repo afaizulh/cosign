@@ -2,8 +2,8 @@
 <% it.title = "Admin — CoSign"; it.active = "dashboard"; %>
 
 <div class="mb-6">
-  <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Overview</h1>
-  <p class="text-sm text-slate-500 mt-0.5">Moderation status across the whole platform.</p>
+  <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">Overview</h1>
+  <p class="text-sm text-slate-500 mt-1">Moderation status across the whole platform.</p>
 </div>
 
 <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -33,7 +33,7 @@
   <!-- Recent takedowns -->
   <section class="bg-white border border-slate-200 rounded-2xl p-5">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5"><i class="bx bx-hide text-lg text-red-500"></i> Hidden works</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5"><i class="bx bx-hide text-lg text-red-500"></i> Hidden works</h2>
       <a href="/admin/works?status=taken_down" class="text-xs font-semibold text-slate-500 hover:text-studio-navy">See all</a>
     </div>
     <% if (it.recentTakedowns.length === 0) { %>
@@ -58,7 +58,7 @@
   <!-- Recent activity -->
   <section class="bg-white border border-slate-200 rounded-2xl p-5">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5"><i class="bx bx-history text-lg text-studio-navy"></i> Recent activity</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5"><i class="bx bx-history text-lg text-studio-navy"></i> Recent activity</h2>
       <a href="/admin/log" class="text-xs font-semibold text-slate-500 hover:text-studio-navy">Full log</a>
     </div>
     <% if (it.recentLog.length === 0) { %>
