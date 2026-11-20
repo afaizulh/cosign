@@ -1,25 +1,59 @@
-<% /* Layered composition card — used in explore & profile grids. Data: it.k = { judul, username, kategori, like_count, parts: { kepala, badan, background } } */ %>
-<a href="/karya/<%= it.k.id %>" class="block bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-  <div class="relative aspect-[3/4] bg-slate-100">
-    <% if (it.k.parts && it.k.parts.background) { %>
-      <img src="/uploads/<%= it.k.parts.background %>" alt="" class="absolute inset-0 w-full h-full object-cover" />
+<% /* Layered composition card — used in explore & profile grids. Data: it.k = { judul, username, kategori, like_count, tipe, parts: { kepala, badan, background } } */ %>
+<% const k = it.k;
+   const parts = k.parts || {};
+   const empty = k.tipe !== "3d" && !parts.kepala && !parts.badan && !parts.background;
+   const initial = String(k.username || "?").charAt(0).toUpperCase(); %>
+<a href="/karya/<%= k.id %>" class="group block focus:outline-none focus-visible:ring-4 focus-visible:ring-studio-gold/40 rounded-2xl">
+  <div class="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm transition duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:border-studio-gold/60">
+    <div class="absolute inset-0 <%= empty || k.tipe === "3d" ? "checkerboard" : "bg-gradient-to-br from-studio-gold-soft to-studio-paper" %>"></div>
+
+    <% if (parts.background) { %>
+      <img src="/uploads/<%= parts.background %>" alt="" loading="lazy"
+        class="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
-    <% if (it.k.parts && it.k.parts.badan) { %>
-      <img src="/uploads/<%= it.k.parts.badan %>" alt="" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain" />
+    <% if (parts.badan) { %>
+      <img src="/uploads/<%= parts.badan %>" alt="" loading="lazy"
+        class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
-    <% if (it.k.parts && it.k.parts.kepala) { %>
-      <img src="/uploads/<%= it.k.parts.kepala %>" alt="" class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain" />
+    <% if (parts.kepala) { %>
+      <img src="/uploads/<%= parts.kepala %>" alt="" loading="lazy"
+        class="absolute top-[8%] left-1/2 -translate-x-1/2 w-2/5 object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
-    <% if (it.k.tipe === "3d") { %>
-      <p class="absolute inset-0 flex items-center justify-center text-sm font-semibold text-indigo-500">3D</p>
-    <% } else if (!it.k.parts || (!it.k.parts.kepala && !it.k.parts.badan && !it.k.parts.background)) { %>
-      <p class="absolute inset-0 flex items-center justify-center text-xs text-slate-400">No parts yet</p>
+
+    <% if (k.tipe === "3d") { %>
+      <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-studio-navy/60">
+        <i class="bx bx-cube text-3xl"></i>
+        <span class="text-[11px] font-semibold uppercase tracking-wider">3D work</span>
+      </div>
+    <% } else if (empty) { %>
+      <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
+        <i class="bx bx-image-add text-3xl"></i>
+        <span class="text-[11px] font-medium">No parts yet</span>
+      </div>
     <% } %>
+
+    <% if (k.kategori) { %>
+      <span class="absolute top-2.5 left-2.5 bg-white/85 backdrop-blur px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-studio-navy">
+        <%= k.kategori %>
+      </span>
+    <% } %>
+
+    <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-studio-navy/75 via-studio-navy/10 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
+    <span class="absolute bottom-3 left-1/2 -translate-x-1/2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition duration-300 bg-white text-studio-navy text-xs font-bold px-3 py-1.5 rounded-full shadow">
+      View work <i class="bx bx-right-arrow-alt align-middle"></i>
+    </span>
   </div>
-  <div class="p-3">
-    <p class="font-semibold text-sm truncate"><%= it.k.judul %></p>
-    <p class="text-xs text-slate-500">
-      by <%= it.k.username %> · <%= it.k.like_count %> <%= it.k.like_count === 1 ? "like" : "likes" %>
-    </p>
+
+  <div class="pt-2.5 px-0.5">
+    <p class="font-bold text-sm text-studio-navy truncate group-hover:text-studio-gold-deep transition-colors"><%= k.judul %></p>
+    <div class="flex items-center justify-between gap-2 mt-1">
+      <p class="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+        <span class="w-5 h-5 shrink-0 rounded-full bg-studio-navy text-studio-gold text-[10px] font-bold flex items-center justify-center"><%= initial %></span>
+        <span class="truncate">by <%= k.username %></span>
+      </p>
+      <p class="text-xs text-slate-500 flex items-center gap-1 shrink-0">
+        <i class="bx bx-heart text-rose-500 text-sm"></i><%= k.like_count %> <%= k.like_count === 1 ? "like" : "likes" %>
+      </p>
+    </div>
   </div>
 </a>

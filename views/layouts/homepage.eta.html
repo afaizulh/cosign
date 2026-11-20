@@ -7,16 +7,26 @@
     <link rel="stylesheet" href="/style.css" />
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
   </head>
-  <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+  <body class="bg-studio-paper text-slate-900 min-h-screen flex flex-col antialiased">
     <%~ include("/partials/homepage-navbar") %>
-    <main class="max-w-5xl w-full mx-auto px-4 py-8 flex-1 overflow-x-hidden">
+    <main class="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10 flex-1 overflow-x-hidden">
       <% if (it.flash) { %>
-        <div class="<%= it.flash.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-red-50 border-red-300 text-red-800' %> border px-4 py-3 rounded-lg mb-6">
-          <%= it.flash.message %>
+        <div class="<%= it.flash.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-red-50 border-red-300 text-red-800' %> border px-4 py-3 rounded-xl mb-6 flex items-start gap-2">
+          <i class="bx <%= it.flash.type === 'success' ? 'bx-check-circle' : 'bx-error-circle' %> text-xl leading-none mt-0.5"></i>
+          <span><%= it.flash.message %></span>
         </div>
       <% } %>
       <%~ it.body %>
     </main>
-    <footer class="text-center text-xs text-slate-400 py-6">CoSign · Venture Studio CCIT-FTUI</footer>
+    <footer class="border-t border-slate-200 bg-white mt-auto">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-studio-gold text-studio-navy flex items-center justify-center text-sm font-extrabold">C</span>
+          <span class="text-sm font-bold text-studio-navy">CoSign</span>
+          <span class="text-xs text-slate-400">Venture Studio CCIT-FTUI</span>
+        </div>
+        <p class="text-xs text-slate-400">Creative Media portfolio platform</p>
+      </div>
+    </footer>
   </body>
 </html>

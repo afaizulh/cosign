@@ -710,6 +710,36 @@ describe("Web — public pages", () => {
     });
   });
 
+  test("profile card shows author + real like count (byUser join)", async () => {
+    const app = createTestApp();
+    const author = await registerUser(app, "author1");
+    const fan = await registerUser(app, "fan1");
+
+    const create = await app.request("/studio/publications", {
+      method: "POST",
+      headers: { cookie: author, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Profil Card", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    // A second user likes it, so the count must be > 0 on the profile page
+    const like = await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie: fan, ...formHeaders },
+    });
+    expect(like.status).toBe(302);
+
+    const html = await (await app.request("/profil/author1")).text();
+    expect(html).toContain("by author1");
+    expect(html).toContain("1 like");
+    expect(html).not.toContain("by undefined");
+
+    await app.request(`/studio/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie: author, ...formHeaders },
+    });
+  });
+
   test("homepage category filter", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);

@@ -56,10 +56,18 @@ export class KaryaModel {
       .all(...params);
   }
 
-  /** List karya owned by one user. */
+  /** List karya owned by one user (includes username + like count for public cards). */
   byUser(userId: string) {
     return this.db
-      .query("SELECT * FROM karya WHERE user_id = ? ORDER BY created_at DESC")
+      .query(
+        `SELECT k.*, u.username, COUNT(l.user_id) AS like_count
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         LEFT JOIN likes l ON l.karya_id = k.id
+         WHERE k.user_id = ?
+         GROUP BY k.id
+         ORDER BY k.created_at DESC`
+      )
       .all(userId);
   }
 
