@@ -328,6 +328,71 @@ describe("Admin — takedown & restore", () => {
     expect(await (await app.request("/")).text()).toContain("Naughty Poster");
   });
 
+  test("reason comes from presets; \"Other\" reveals a custom field", async () => {
+    const { app, adminCookie, karyaId } = await fixture();
+
+    const page = await (
+      await app.request(`/admin/works/${karyaId}`, { headers: { cookie: adminCookie } })
+    ).text();
+
+    // Preset list is rendered as radios, with the custom field hidden by default
+    expect(page).toContain('name="reason" value="Inappropriate imagery"');
+    expect(page).toContain('name="reason" value="Hateful or harassing content"');
+    expect(page).toContain("Other (write your own)");
+    expect(page).toContain('id="custom-reason-wrap" class="hidden"');
+    // Submit starts disabled — you must pick a reason first
+    expect(page).toContain('id="takedown-submit" disabled');
+
+    // A preset is stored as-is
+    await app.request(`/admin/works/${karyaId}/takedown`, {
+      method: "POST",
+      headers: { cookie: adminCookie, ...formPostHeaders },
+      body: new URLSearchParams({ reason: "Spam or misleading content" }).toString(),
+    });
+    const after = await (
+      await app.request(`/admin/works/${karyaId}`, { headers: { cookie: adminCookie } })
+    ).text();
+    expect(after).toContain("Spam or misleading content");
+  });
+
+  test("custom reason is used only when \"Other\" is picked", async () => {
+    const { app, adminCookie, karyaId } = await fixture();
+
+    // "Other" + custom text → stored custom text
+    await app.request(`/admin/works/${karyaId}/takedown`, {
+      method: "POST",
+      headers: { cookie: adminCookie, ...formPostHeaders },
+      body: new URLSearchParams({
+        reason: "Other (write your own)",
+        custom_reason: "Contains a classmate's photo without consent",
+      }).toString(),
+    });
+    const page = await (
+      await app.request(`/admin/works/${karyaId}`, { headers: { cookie: adminCookie } })
+    ).text();
+    expect(page).toContain("Contains a classmate&#39;s photo without consent");
+  });
+
+  test("\"Other\" without custom text, and unknown values, are rejected", async () => {
+    const { app, adminCookie, karyaId } = await fixture();
+
+    const badBodies: Record<string, string>[] = [
+      { reason: "Other (write your own)", custom_reason: "   " },
+      { reason: "made up reason" },
+      { reason: "" },
+    ];
+    for (const body of badBodies) {
+      await app.request(`/admin/works/${karyaId}/takedown`, {
+        method: "POST",
+        headers: { cookie: adminCookie, ...formPostHeaders },
+        body: new URLSearchParams(body).toString(),
+      });
+    }
+
+    // Still public — nothing was stored
+    expect(await (await app.request("/")).text()).toContain("Naughty Poster");
+  });
+
   test("restore makes the work public again", async () => {
     const { app, adminCookie, karyaId } = await fixture();
     await app.request(`/admin/works/${karyaId}/takedown`, {
@@ -756,7 +821,7 @@ describe("Admin — roles & audit log", () => {
     await app.request(`/admin/works/${karyaId}/takedown`, {
       method: "POST",
       headers: { cookie: adminCookie, ...formPostHeaders },
-      body: new URLSearchParams({ reason: "Rule violation" }).toString(),
+      body: new URLSearchParams({ reason: "Inappropriate imagery" }).toString(),
     });
     await app.request(`/admin/works/${karyaId}/restore`, {
       method: "POST",
@@ -778,7 +843,7 @@ describe("Admin — roles & audit log", () => {
       "user.suspend",
     ]);
     expect(rows.every((r) => r.admin_id === adminId)).toBe(true);
-    expect(rows[0].reason).toBe("Rule violation");
+    expect(rows[0].reason).toBe("Inappropriate imagery");
 
     const logPage = await (await app.request("/admin/log", { headers: { cookie: adminCookie } })).text();
     expect(logPage).toContain("karya.takedown");

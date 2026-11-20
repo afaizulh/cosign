@@ -10,8 +10,8 @@
 
 <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
   <div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Users</h1>
-    <p class="text-sm text-slate-500 mt-0.5">Suspend accounts that break the rules. Suspension hides their works.</p>
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">Users</h1>
+    <p class="text-sm text-slate-500 mt-1">Suspend accounts that break the rules. Suspension hides their works.</p>
   </div>
   <form method="get" action="/admin/users" class="flex items-center gap-2">
     <% if (it.aktif) { %><input type="hidden" name="status" value="<%= it.aktif %>" /><% } %>
@@ -89,7 +89,9 @@
               <% } %>
             </td>
             <td class="px-4 py-3 text-right">
-              <a href="/admin/users/<%= u.id %>" class="text-xs font-bold text-studio-navy hover:underline">Manage →</a>
+              <a href="/admin/users/<%= u.id %>" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-studio-navy bg-white border border-slate-300 no-underline hover:bg-studio-navy hover:text-white hover:border-studio-navy transition-colors">
+                Manage <i class="bx bx-right-arrow-alt text-sm"></i>
+              </a>
             </td>
           </tr>
         <% }) %>

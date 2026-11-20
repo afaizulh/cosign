@@ -5,7 +5,7 @@
    const initial = String(k.username || "?").charAt(0).toUpperCase(); %>
 <a href="/karya/<%= k.id %>" class="group block focus:outline-none focus-visible:ring-4 focus-visible:ring-studio-gold/40 rounded-2xl">
   <div class="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm transition duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:border-studio-gold/60">
-    <div class="absolute inset-0 <%= empty || k.tipe === "3d" ? "checkerboard" : "bg-gradient-to-br from-studio-gold-soft to-studio-paper" %>"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-studio-gold-soft to-studio-paper"></div>
 
     <% if (parts.background) { %>
       <img src="/uploads/<%= parts.background %>" alt="" loading="lazy"
@@ -21,15 +21,9 @@
     <% } %>
 
     <% if (k.tipe === "3d") { %>
-      <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-studio-navy/60">
-        <i class="bx bx-cube text-3xl"></i>
-        <span class="text-[11px] font-semibold uppercase tracking-wider">3D work</span>
-      </div>
+      <%~ include("/partials/placeholder", { seed: String(k.user_id || k.id) + "-3d", badge: "3D", label: "No thumbnail" }) %>
     <% } else if (empty) { %>
-      <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
-        <i class="bx bx-image-add text-3xl"></i>
-        <span class="text-[11px] font-medium">No parts yet</span>
-      </div>
+      <%~ include("/partials/placeholder", { seed: String(k.user_id || k.id), label: "No thumbnail" }) %>
     <% } %>
 
     <% if (k.kategori) { %>

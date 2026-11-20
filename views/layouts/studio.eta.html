@@ -40,7 +40,7 @@
                 <img src="/uploads/<%= it.user.avatar_path.replace(/^uploads\//, '') %>" alt=""
                   class="w-10 h-10 rounded-full object-cover border-2 border-studio-gold" />
               <% } else { %>
-                <div class="w-10 h-10 rounded-full bg-studio-navy-soft border-2 border-studio-gold flex items-center justify-center font-bold text-studio-gold">
+                <div class="w-10 h-10 rounded-full bg-studio-navy-soft border-2 border-studio-gold flex items-center justify-center text-sm font-bold text-studio-gold">
                   <%= it.user.username.charAt(0).toUpperCase() %>
                 </div>
               <% } %>

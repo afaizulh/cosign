@@ -12,7 +12,7 @@
     <% } %>
     <div>
       <div class="flex items-center gap-2 flex-wrap">
-        <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">@<%= u.username %></h1>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">@<%= u.username %></h1>
         <% if (u.role === "superadmin") { %>
           <span class="text-[11px] font-bold uppercase bg-amber-400 text-studio-navy px-2 py-0.5 rounded-full">superadmin</span>
         <% } else if (u.role === "admin") { %>
@@ -33,7 +33,7 @@
   <div class="space-y-5">
     <!-- Account moderation -->
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-shield-quarter text-lg text-red-500"></i> Account moderation</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-shield-quarter text-lg text-red-500"></i> Account moderation</h2>
       <% if (it.isSelf) { %>
         <p class="text-sm text-slate-500 flex items-center gap-1.5"><i class="bx bx-info-circle"></i> This is your own account — you cannot suspend or change your own role here.</p>
       <% } else if (u.role === "superadmin") { %>
@@ -67,7 +67,7 @@
 
     <!-- Role -->
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-key text-lg text-studio-navy"></i> Role</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-key text-lg text-studio-navy"></i> Role</h2>
       <% if (it.isSelf) { %>
         <p class="text-sm text-slate-500">You are signed in as <span class="font-semibold text-studio-navy"><%= it.actorRole %></span>. Your own role cannot be changed here.</p>
       <% } else if (u.role === "superadmin") { %>
@@ -88,7 +88,7 @@
 
     <!-- History -->
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this account</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this account</h2>
       <% if (it.history.length === 0) { %>
         <p class="text-sm text-slate-400">No moderation actions.</p>
       <% } else { %>
@@ -105,7 +105,7 @@
 
   <!-- Their works -->
   <section class="bg-white border border-slate-200 rounded-2xl p-5">
-    <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3">
+    <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3">
       <i class="bx bx-collection text-lg text-studio-navy"></i> Works
       <span class="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><%= it.works.length %></span>
     </h2>

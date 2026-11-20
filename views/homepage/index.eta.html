@@ -68,9 +68,8 @@ const showcase = it.karya.filter(function (k) { return k.tipe !== "3d" && k.part
     <div class="relative hidden lg:block h-64">
       <% if (showcase.length === 0) { %>
         <div class="absolute inset-0 flex items-center justify-center">
-          <div class="w-40 aspect-[4/5] rounded-2xl border-2 border-dashed border-white/25 flex flex-col items-center justify-center gap-2 text-white/40">
-            <i class="bx bx-image-add text-3xl"></i>
-            <span class="text-xs font-medium">Your work here</span>
+          <div class="relative w-40 aspect-[4/5] rounded-2xl overflow-hidden ring-4 ring-white/10 shadow-2xl">
+            <%~ include("/partials/placeholder", { seed: "explore-hero", label: "No thumbnail" }) %>
           </div>
         </div>
       <% } else { %>

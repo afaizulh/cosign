@@ -5,8 +5,8 @@
 
 <div>
   <div class="mb-6">
-    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Settings</h1>
-    <p class="text-sm text-slate-500 mt-0.5">Manage your profile, your public page and your account.</p>
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">Settings</h1>
+    <p class="text-sm text-slate-500 mt-1">Manage your profile, your public page and your account.</p>
   </div>
 
   <div class="grid xl:grid-cols-[1fr_380px] gap-5 items-start">
@@ -51,6 +51,7 @@
       <div>
         <label for="full_name" class="block text-sm font-medium mb-1">Full name</label>
         <input id="full_name" name="full_name" maxlength="80" value="<%= it.profil.full_name ?? '' %>"
+          placeholder="e.g. Hudya Ramadhana"
           class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
       </div>
       <div>

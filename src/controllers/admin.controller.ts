@@ -59,6 +59,16 @@ export function adminController(db: Db) {
     return { ok: true };
   }
 
+  /** Preset takedown reasons — the last one reveals a custom text field. */
+  const OTHER_REASON = "Other (write your own)";
+  const TAKEDOWN_REASONS = [
+    "Inappropriate imagery",
+    "Hateful or harassing content",
+    "Spam or misleading content",
+    "Copyright / not the creator's own work",
+    OTHER_REASON,
+  ];
+
   /** Rows per page in the admin tables (kept small enough to scan). */
   const PER_PAGE = 12;
 
@@ -130,6 +140,8 @@ export function adminController(db: Db) {
     return view(c, "admin/works/show", {
       karya: withComp,
       raw: item,
+      reasonOptions: TAKEDOWN_REASONS,
+      otherReason: OTHER_REASON,
       author: users.findForAdmin(item.user_id),
       history: log.forTarget("karya", item.id),
       comments: comments.byKarya(item.id),
@@ -145,9 +157,18 @@ export function adminController(db: Db) {
       return redirect(c, "/admin/works");
     }
     const body = await c.req.parseBody();
-    const reason = String(body.reason ?? "").trim();
+    const choice = String(body.reason ?? "").trim();
+    const custom = String(body.custom_reason ?? "").trim();
+    // "Other" resolves to the custom text; anything else must be a known preset.
+    const reason =
+      choice === OTHER_REASON ? custom : TAKEDOWN_REASONS.includes(choice) ? choice : "";
     if (!reason) {
-      flashError(c, "A reason is required to take a work down.");
+      flashError(
+        c,
+        choice === OTHER_REASON
+          ? "Write your own reason before taking this work down."
+          : "A reason is required to take a work down."
+      );
       return redirect(c, `/admin/works/${id}`);
     }
     karya.takedown(id, c.get("userId") as string, reason);

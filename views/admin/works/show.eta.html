@@ -6,14 +6,14 @@
 <div class="mb-5">
   <a href="/admin/works" class="text-xs font-semibold text-slate-500 hover:text-studio-navy"><i class="bx bx-arrow-back"></i> Back to works</a>
   <div class="flex flex-wrap items-center gap-2 mt-1">
-    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy"><%= raw.judul %></h1>
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy"><%= raw.judul %></h1>
     <% if (hidden) { %>
       <span class="text-[11px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">hidden</span>
     <% } else { %>
       <span class="text-[11px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">published</span>
     <% } %>
   </div>
-  <p class="text-sm text-slate-500 mt-0.5">
+  <p class="text-sm text-slate-500 mt-1">
     by <a href="/admin/users/<%= raw.user_id %>" class="font-semibold hover:underline">@<%= raw.username %></a>
     · <%= raw.kategori %> · <%= raw.tipe %> · created <%= raw.created_at %>
   </p>
@@ -51,7 +51,7 @@
   <!-- Moderation panel -->
   <div class="space-y-5">
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3">
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3">
         <i class="bx bx-shield-quarter text-lg text-red-500"></i> Moderation
       </h2>
       <% if (hidden) { %>
@@ -66,28 +66,141 @@
         </form>
       <% } else { %>
         <p class="text-sm text-slate-500 mb-3">Taking this work down hides it from Explore, profiles and its public page. The data stays intact and can be restored.</p>
-        <form method="post" action="/admin/works/<%= raw.id %>/takedown" class="space-y-2">
-          <label for="reason" class="block text-sm font-medium">Reason (shown in the log)</label>
-          <textarea id="reason" name="reason" rows="2" required maxlength="500"
-            placeholder="e.g. Contains inappropriate imagery"
-            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"></textarea>
-          <button type="submit" class="inline-flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700"
-            onclick="return confirm('Hide this work from the public site?')">
+        <form method="post" action="/admin/works/<%= raw.id %>/takedown" class="space-y-3" id="takedown-form">
+          <fieldset>
+            <legend class="block text-sm font-medium mb-2">Reason (shown in the log)</legend>
+            <div class="space-y-1.5">
+              <% it.reasonOptions.forEach(function (option) { %>
+                <label class="flex items-start gap-2.5 px-3 py-2 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-red-300 has-[:checked]:border-red-400 has-[:checked]:bg-red-50">
+                  <input type="radio" name="reason" value="<%= option %>" required
+                    data-custom="<%= option === it.otherReason ? "true" : "false" %>"
+                    class="mt-0.5 accent-red-600" />
+                  <span class="text-sm text-slate-700"><%= option %></span>
+                </label>
+              <% }) %>
+            </div>
+          </fieldset>
+
+          <div id="custom-reason-wrap" class="hidden">
+            <label for="custom_reason" class="block text-sm font-medium mb-1">Your reason</label>
+            <textarea id="custom_reason" name="custom_reason" rows="2" maxlength="500"
+              placeholder="Explain what is wrong with this work…"
+              class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"></textarea>
+          </div>
+
+          <button type="submit" id="takedown-submit" disabled
+            class="inline-flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:hover:bg-slate-300">
             <i class="bx bx-hide"></i> Take down
           </button>
+          <p id="takedown-hint" class="text-xs text-slate-400">Pick a reason to enable this button.</p>
         </form>
+
+        <dialog id="takedown-dialog"
+          class="fixed inset-0 m-auto w-[min(26rem,92vw)] h-fit max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-studio-navy/60 backdrop:backdrop-blur-sm">
+          <div class="p-5">
+            <div class="flex items-start gap-3">
+              <span class="w-11 h-11 shrink-0 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl">
+                <i class="bx bx-error"></i>
+              </span>
+              <div class="min-w-0">
+                <h2 class="text-lg font-bold text-studio-navy">Take this work down?</h2>
+                <p class="text-sm text-slate-500 mt-0.5">It will be hidden from Explore, profiles and its public page.</p>
+              </div>
+            </div>
+
+            <div class="mt-4 space-y-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <p class="text-xs text-slate-500">Work</p>
+              <p class="text-sm font-semibold text-studio-navy truncate"><%= raw.judul %></p>
+              <p class="text-xs text-slate-500 pt-1">Reason</p>
+              <p id="dialog-reason" class="text-sm text-slate-700"></p>
+            </div>
+
+            <p class="text-xs text-slate-400 mt-3">You can restore it later, and this action is recorded in the activity log.</p>
+
+            <div class="mt-5 flex items-center justify-end gap-2">
+              <button type="button" id="dialog-cancel"
+                class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button type="button" id="dialog-confirm"
+                class="inline-flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700">
+                <i class="bx bx-hide"></i> Yes, take it down
+              </button>
+            </div>
+          </div>
+        </dialog>
+
+        <script>
+          (function () {
+            const form = document.getElementById("takedown-form");
+            if (!form) return;
+            const radios = Array.from(form.querySelectorAll('input[name="reason"]'));
+            const wrap = document.getElementById("custom-reason-wrap");
+            const custom = document.getElementById("custom_reason");
+            const submit = document.getElementById("takedown-submit");
+            const hint = document.getElementById("takedown-hint");
+
+            function sync() {
+              const picked = radios.find((r) => r.checked);
+              const isOther = !!picked && picked.dataset.custom === "true";
+              wrap.classList.toggle("hidden", !isOther);
+              const ok = !!picked && (!isOther || custom.value.trim().length > 0);
+              submit.disabled = !ok;
+              hint.textContent = !picked
+                ? "Pick a reason to enable this button."
+                : isOther && !custom.value.trim()
+                  ? "Write your own reason to enable this button."
+                  : "This action is logged and can be undone.";
+            }
+
+            radios.forEach((r) =>
+              r.addEventListener("change", () => {
+                sync();
+                if (r.checked && r.dataset.custom === "true") custom.focus();
+              })
+            );
+            custom.addEventListener("input", sync);
+            sync();
+
+            // Confirmation modal (no native confirm()) — falls back to a plain
+            // submit when <dialog> is unavailable.
+            const dialog = document.getElementById("takedown-dialog");
+            const dialogReason = document.getElementById("dialog-reason");
+            const cancelBtn = document.getElementById("dialog-cancel");
+            const confirmBtn = document.getElementById("dialog-confirm");
+            let bypass = false;
+
+            form.addEventListener("submit", (event) => {
+              if (bypass || typeof dialog.showModal !== "function") return;
+              event.preventDefault();
+              const picked = radios.find((r) => r.checked);
+              const isOther = !!picked && picked.dataset.custom === "true";
+              dialogReason.textContent = isOther ? custom.value.trim() : picked.value;
+              dialog.showModal();
+            });
+
+            cancelBtn.addEventListener("click", () => dialog.close());
+            confirmBtn.addEventListener("click", () => {
+              dialog.close();
+              bypass = true; // don't re-open the dialog on the programmatic submit
+              form.submit();
+            });
+          })();
+        </script>
       <% } %>
     </section>
 
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-user text-lg text-studio-navy"></i> Author</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-user text-lg text-studio-navy"></i> Author</h2>
       <% if (it.author) { %>
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <a href="/admin/users/<%= it.author.id %>" class="font-semibold text-studio-navy hover:underline">@<%= it.author.username %></a>
             <p class="text-xs text-slate-500"><%= it.author.karya_count %> works · <%= it.author.status %></p>
           </div>
-          <a href="/admin/users/<%= it.author.id %>" class="text-xs font-bold text-studio-navy hover:underline whitespace-nowrap">Manage →</a>
+          <a href="/admin/users/<%= it.author.id %>" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-studio-navy bg-white border border-slate-300 no-underline hover:bg-studio-navy hover:text-white hover:border-studio-navy transition-colors whitespace-nowrap">
+            Manage <i class="bx bx-right-arrow-alt text-sm"></i>
+          </a>
         </div>
       <% } else { %>
         <p class="text-sm text-slate-400">Author not found.</p>
@@ -95,7 +208,7 @@
     </section>
 
     <section class="bg-white border border-slate-200 rounded-2xl p-5">
-      <h2 class="font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this work</h2>
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this work</h2>
       <% if (it.history.length === 0) { %>
         <p class="text-sm text-slate-400">No moderation actions on this work.</p>
       <% } else { %>
