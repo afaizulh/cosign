@@ -1,0 +1,132 @@
+<% layout("/layouts/studio") %>
+<% it.title = "Publications — CoSign Studio"; it.active = "publications"; %>
+<% const up = function (p) { return "/uploads/" + String(p || "").replace(/^uploads\//, ""); }; %>
+
+<!-- Header -->
+<div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+  <div>
+    <p class="text-xs font-semibold text-slate-500 mb-1"><a href="/studio" class="hover:text-studio-navy"><i class="bx bx-arrow-back"></i> Dashboard</a></p>
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">Publications</h1>
+    <p class="text-sm text-slate-500 mt-1">Create a new work, then add image parts like blush.design collections.</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="/profil/<%= it.user.username %>"
+      class="inline-flex items-center gap-1.5 border border-slate-300 bg-white px-4 py-2.5 rounded-xl text-sm font-semibold text-studio-navy hover:bg-slate-100">
+      <i class="bx bx-id-card text-lg"></i> View public profile
+    </a>
+    <a href="#new-work"
+      class="inline-flex items-center gap-1.5 bg-studio-gold text-studio-navy px-4 py-2.5 rounded-xl text-sm font-extrabold hover:bg-studio-gold-deep hover:text-white shadow-sm">
+      <i class="bx bx-plus text-lg"></i> New Work
+    </a>
+  </div>
+</div>
+
+<!-- New work -->
+<section id="new-work" class="bg-white border-2 border-dashed border-studio-gold rounded-2xl p-5 sm:p-6 mb-8 scroll-mt-4">
+  <h2 class="font-extrabold text-studio-navy flex items-center gap-2"><i class="bx bx-plus-circle text-xl text-studio-gold-deep"></i> Create a new work</h2>
+  <p class="text-xs text-slate-500 mt-1 mb-4">Start with a title — you will add head, body &amp; background images (or 3D assets) on the next step.</p>
+  <form method="post" action="/studio/publications" class="grid sm:grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm font-medium mb-1" for="judul">Title</label>
+      <input id="judul" name="judul" required placeholder="Poster Konser Amal"
+        class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1" for="kategori">Category</label>
+      <select id="kategori" name="kategori" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-white">
+        <% it.kategoriList.forEach(function (k) { %>
+          <option value="<%= k %>"><%= k %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="sm:col-span-2">
+      <label class="block text-sm font-medium mb-1" for="deskripsi">Description</label>
+      <textarea id="deskripsi" name="deskripsi" rows="2" placeholder="Short description of your work"
+        class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold"></textarea>
+    </div>
+    <fieldset class="sm:col-span-2">
+      <legend class="block text-sm font-medium mb-1">Work type</legend>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="border border-slate-300 rounded-xl px-3 py-2.5 text-sm cursor-pointer has-[:checked]:border-studio-gold has-[:checked]:bg-studio-gold-soft">
+          <input type="radio" name="tipe" value="2d" checked class="mr-1 accent-[#c98a00]" />
+          <i class="bx bx-layer mr-1"></i>2D parts
+          <span class="block text-xs text-slate-500 ml-5">Head, body &amp; background images</span>
+        </label>
+        <label class="border border-slate-300 rounded-xl px-3 py-2.5 text-sm cursor-pointer has-[:checked]:border-studio-gold has-[:checked]:bg-studio-gold-soft">
+          <input type="radio" name="tipe" value="3d" class="mr-1 accent-[#c98a00]" />
+          <i class="bx bx-cube mr-1"></i>3D assets
+          <span class="block text-xs text-slate-500 ml-5">GLB, GLTF, OBJ, FBX, STL, USDZ</span>
+        </label>
+      </div>
+    </fieldset>
+    <div class="sm:col-span-2">
+      <button type="submit" class="inline-flex items-center gap-1.5 bg-studio-navy text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-studio-navy-deep">
+        <i class="bx bx-plus"></i> Create work
+      </button>
+    </div>
+  </form>
+</section>
+
+<!-- All works -->
+<div class="flex items-center justify-between mb-3">
+  <h2 class="font-extrabold text-studio-navy text-lg">All works</h2>
+  <span class="text-xs text-slate-400"><%= it.karya.length %> total</span>
+</div>
+
+<% if (it.karya.length === 0) { %>
+  <div class="bg-white border border-slate-200 rounded-2xl p-10 text-center">
+    <i class="bx bx-image-add text-5xl text-slate-300"></i>
+    <p class="font-semibold text-studio-navy mt-3">No works yet</p>
+    <p class="text-sm text-slate-500 mt-1">You haven't created any work yet. Create your first work above — then add parts like blush.design collections.</p>
+  </div>
+<% } else { %>
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+    <% it.karya.forEach(function (k) { %>
+      <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+        <a href="/karya/<%= k.id %>" class="relative block aspect-[3/4] bg-slate-100">
+          <% if (k.tipe === "3d") { %>
+            <span class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-studio-navy-soft">
+              <i class="bx bx-cube text-4xl"></i>
+              <span class="text-xs font-semibold">3D · <%= k.asset_count %> asset<%= k.asset_count === 1 ? "" : "s" %></span>
+            </span>
+          <% } else { %>
+            <% if (k.parts.background) { %>
+              <img src="<%= up(k.parts.background) %>" alt="" class="absolute inset-0 w-full h-full object-cover" />
+            <% } %>
+            <% if (k.parts.badan) { %>
+              <img src="<%= up(k.parts.badan) %>" alt="" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain" />
+            <% } %>
+            <% if (k.parts.kepala) { %>
+              <img src="<%= up(k.parts.kepala) %>" alt="" class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain" />
+            <% } %>
+            <% if (!k.parts.kepala && !k.parts.badan && !k.parts.background) { %>
+              <span class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
+                <i class="bx bx-image text-4xl"></i>
+                <span class="text-xs">No parts yet</span>
+              </span>
+            <% } %>
+          <% } %>
+          <span class="absolute top-2 left-2 text-[11px] bg-studio-navy/85 text-white px-2 py-0.5 rounded-full font-medium uppercase"><%= k.tipe %></span>
+        </a>
+        <div class="p-3 flex-1 flex flex-col">
+          <p class="font-bold text-sm text-studio-navy truncate"><%= k.judul %></p>
+          <p class="text-xs text-slate-500 mt-0.5">
+            <i class="bx bx-heart text-rose-500"></i> <%= k.like_count %>
+            · <%= k.tipe === "3d" ? (k.asset_count + (k.asset_count === 1 ? " asset" : " assets")) : (k.part_count + (k.part_count === 1 ? " part" : " parts")) %>
+          </p>
+          <div class="flex items-center gap-3 mt-2 pt-2 border-t border-slate-100 text-xs font-semibold">
+            <% if (k.tipe === "3d") { %>
+              <a href="/studio/karya/<%= k.id %>/3d" class="text-studio-navy hover:underline"><i class="bx bx-cube"></i> Manage Assets</a>
+            <% } else { %>
+              <a href="/studio/karya/<%= k.id %>" class="text-studio-navy hover:underline"><i class="bx bx-layer"></i> Manage Parts</a>
+            <% } %>
+            <form method="post" action="/studio/karya/<%= k.id %>/delete" class="inline ml-auto"
+              onsubmit="return confirm('Delete this work? All parts & assets will be removed.')">
+              <button type="submit" class="text-rose-600 hover:underline"><i class="bx bx-trash"></i> Delete</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>

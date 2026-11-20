@@ -1,0 +1,145 @@
+<% layout("/layouts/studio") %>
+<% it.title = "Manage Parts — " + it.karya.judul; it.active = "publications"; %>
+<% const up = function (p) { return "/uploads/" + String(p || "").replace(/^uploads\//, ""); }; %>
+
+<div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+  <div class="min-w-0">
+    <a href="/studio/publications" class="text-xs font-semibold text-slate-500 hover:text-studio-navy"><i class="bx bx-arrow-back"></i> Publications</a>
+    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy truncate"><%= it.karya.judul %></h1>
+    <p class="text-xs text-slate-500 mt-0.5">
+      <span class="bg-slate-100 px-2 py-0.5 rounded-full"><%= it.karya.kategori %></span>
+      · Upload images per category — the preview mirrors exactly what visitors see.
+    </p>
+  </div>
+  <a href="/karya/<%= it.karya.id %>" target="_blank" rel="noopener"
+    class="inline-flex items-center gap-1.5 border border-slate-300 bg-white px-4 py-2 rounded-xl text-sm font-semibold text-studio-navy hover:bg-slate-100 shrink-0">
+    <i class="bx bx-show"></i> View public page
+  </a>
+</div>
+
+<div class="bg-studio-gold-soft border border-studio-gold/40 rounded-2xl px-4 py-3 mb-6 flex items-start gap-2 text-sm">
+  <i class="bx bx-bulb text-xl text-studio-gold-deep leading-none mt-0.5"></i>
+  <p class="text-studio-navy"><span class="font-bold">Tip for clean compositions:</span>
+    use transparent <span class="font-mono text-xs bg-white px-1 rounded border">PNG</span> files with similar canvas sizes.
+    JPG photos have solid backgrounds and will cover other layers.</p>
+</div>
+
+<div class="grid lg:grid-cols-[1fr_360px] gap-5 items-start">
+  <!-- Live preview -->
+  <div class="lg:sticky lg:top-4">
+    <div id="compose" class="checkerboard relative w-full aspect-[3/4] border border-slate-200 rounded-2xl overflow-hidden max-w-md mx-auto">
+      <img data-layer="background" src="<%= it.karya.parts && it.karya.parts.background ? up(it.karya.parts.background) : '' %>" alt=""
+        class="absolute inset-0 w-full h-full object-cover <%= it.karya.parts && it.karya.parts.background ? '' : 'hidden' %>" />
+      <img data-layer="badan" src="<%= it.karya.parts && it.karya.parts.badan ? up(it.karya.parts.badan) : '' %>" alt=""
+        class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain <%= it.karya.parts && it.karya.parts.badan ? '' : 'hidden' %>" />
+      <img data-layer="kepala" src="<%= it.karya.parts && it.karya.parts.kepala ? up(it.karya.parts.kepala) : '' %>" alt=""
+        class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain <%= it.karya.parts && it.karya.parts.kepala ? '' : 'hidden' %>" />
+    </div>
+    <p class="text-center text-xs text-slate-400 mt-2"><i class="bx bx-check-shield"></i> Live mirror of the public customizer</p>
+  </div>
+
+  <!-- Trays -->
+  <div class="space-y-4 min-w-0">
+    <% const labels = { kepala: "Head", badan: "Body", background: "Background" }; %>
+    <% const icons = { kepala: "bx-smile", badan: "bx-body", background: "bx-image" }; %>
+    <% it.kategoriList.forEach(function (kat) { %>
+      <% const parts = it.byCategory[kat] || []; %>
+      <section class="bg-white border border-slate-200 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="font-bold text-studio-navy flex items-center gap-1.5">
+            <i class="bx <%= icons[kat] %> text-lg text-studio-gold-deep"></i> <%= labels[kat] %>
+          </h2>
+          <span class="text-xs font-semibold <%= parts.length > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500' %> px-2 py-0.5 rounded-full">
+            <%= parts.length %> variant<%= parts.length === 1 ? "" : "s" %>
+          </span>
+        </div>
+        <form method="post" action="/studio/karya/<%= it.karya.id %>/parts" enctype="multipart/form-data"
+          class="flex flex-wrap items-center gap-2 mt-2">
+          <input type="hidden" name="kategori" value="<%= kat %>" />
+          <input type="file" name="media" accept="image/jpeg,image/png,image/gif,image/webp" required
+            class="min-w-0 flex-1 text-xs border border-slate-300 rounded-xl px-2 py-1.5 file:mr-2 file:border-0 file:bg-studio-navy file:text-white file:text-xs file:font-semibold file:px-3 file:py-1.5 file:rounded-lg" />
+          <button type="submit" class="bg-studio-gold text-studio-navy px-3 py-1.5 rounded-xl text-xs font-extrabold hover:bg-studio-gold-deep hover:text-white shrink-0">
+            <i class="bx bx-upload"></i> Upload
+          </button>
+        </form>
+        <% if (parts.length === 0) { %>
+          <p class="text-xs text-slate-400 mt-3 flex items-center gap-1"><i class="bx bx-info-circle"></i> No <%= labels[kat].toLowerCase() %> images yet.</p>
+        <% } else { %>
+          <div class="grid grid-cols-4 gap-2 mt-3">
+            <% parts.forEach(function (p) { %>
+              <div class="relative group">
+                <button type="button" class="preview-pick block w-full" data-kategori="<%= kat %>" data-src="<%= up(p.media_path) %>" title="Preview in composition">
+                  <img src="<%= up(p.media_path) %>" alt="" loading="lazy"
+                    class="w-full aspect-[3/4] object-cover rounded-xl border border-slate-200 hover:border-studio-gold" />
+                </button>
+                <form method="post" action="/studio/karya/<%= it.karya.id %>/parts/<%= p.id %>/delete"
+                  class="absolute -top-2 -right-2" onsubmit="return confirm('Delete this part?')">
+                  <button type="submit" title="Delete part"
+                    class="bg-rose-600 text-white rounded-full w-6 h-6 text-xs leading-none shadow hover:bg-rose-700">×</button>
+                </form>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </section>
+    <% }) %>
+
+    <!-- Edit details -->
+    <details class="bg-white border border-slate-200 rounded-2xl p-4">
+      <summary class="font-bold text-studio-navy cursor-pointer list-none flex items-center gap-1.5">
+        <i class="bx bx-edit text-lg text-studio-gold-deep"></i> Edit details
+      </summary>
+      <form method="post" action="/studio/karya/<%= it.karya.id %>/edit" class="space-y-3 mt-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Title</label>
+          <input name="judul" required value="<%= it.karya.judul %>"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Description</label>
+          <textarea name="deskripsi" rows="3"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold"><%= it.karya.deskripsi || "" %></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Category</label>
+          <select name="kategori" class="w-full border border-slate-300 rounded-xl px-3 py-2 bg-white">
+            <% it.workKategoriList.forEach(function (k) { %>
+              <option value="<%= k %>" <%= it.karya.kategori === k ? "selected" : "" %>><%= k %></option>
+            <% }) %>
+          </select>
+        </div>
+        <button type="submit" class="bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep">Save changes</button>
+      </form>
+    </details>
+
+    <!-- Danger zone -->
+    <div class="bg-white border border-rose-200 rounded-2xl p-4">
+      <form method="post" action="/studio/karya/<%= it.karya.id %>/delete"
+        onsubmit="return confirm('Delete this work? All parts will be removed.')">
+        <button type="submit" class="text-sm font-semibold text-rose-600 hover:underline"><i class="bx bx-trash"></i> Delete this work</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Studio preview: click a tray variant to swap it into the live preview (client-side only).
+(function () {
+  const compose = document.getElementById("compose");
+  if (!compose) return;
+  const layers = {
+    kepala: compose.querySelector('[data-layer="kepala"]'),
+    badan: compose.querySelector('[data-layer="badan"]'),
+    background: compose.querySelector('[data-layer="background"]'),
+  };
+  document.querySelectorAll(".preview-pick").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const layer = layers[btn.getAttribute("data-kategori")];
+      const src = btn.getAttribute("data-src");
+      if (!layer || !src) return;
+      layer.src = src;
+      layer.classList.remove("hidden");
+    });
+  });
+})();
+</script>

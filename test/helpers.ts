@@ -49,7 +49,7 @@ export async function registerUser(
   username = "admin",
   password = "rahasia123"
 ): Promise<string> {
-  const res = await app.request("/admin/register", {
+  const res = await app.request("/studio/register", {
     method: "POST",
     headers: formPostHeaders,
     body: new URLSearchParams({ username, password }).toString(),

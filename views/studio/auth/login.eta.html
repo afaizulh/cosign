@@ -1,0 +1,30 @@
+<% layout("/layouts/studio-auth") %>
+<% it.title = "Sign in — CoSign Studio" %>
+
+<h1 class="text-2xl font-extrabold text-white text-center tracking-tight">Welcome back</h1>
+<p class="text-sm text-slate-300 text-center mt-1 mb-6">Sign in to open your studio.</p>
+<%~ include("/partials/errors", { errors: it.errors }) %>
+<form method="post" action="/studio/login" class="bg-white rounded-2xl p-6 space-y-4 shadow-xl">
+  <div>
+    <label for="username" class="block text-sm font-medium mb-1">Username</label>
+    <div class="relative">
+      <i class="bx bx-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+      <input id="username" name="username" required value="<%= it.old.username ?? '' %>" autocomplete="username"
+        class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
+    </div>
+  </div>
+  <div>
+    <label for="password" class="block text-sm font-medium mb-1">Password</label>
+    <div class="relative">
+      <i class="bx bx-lock-alt absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+      <input id="password" name="password" type="password" required autocomplete="current-password"
+        class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
+    </div>
+  </div>
+  <button type="submit" class="w-full bg-studio-gold text-studio-navy font-extrabold py-2.5 rounded-xl hover:bg-studio-gold-deep hover:text-white">
+    <i class="bx bx-log-in"></i> Sign in
+  </button>
+</form>
+<p class="text-center text-sm text-slate-300 mt-4">
+  Don't have an account? <a href="/studio/register" class="text-studio-gold font-semibold hover:underline">Register</a>
+</p>

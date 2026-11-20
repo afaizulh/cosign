@@ -5,7 +5,7 @@ describe("Rate limit — login/register", () => {
   test("11th login attempt from same IP → 429", async () => {
     const app = createTestApp();
     const attempt = () =>
-      app.request("/admin/login", {
+      app.request("/studio/login", {
         method: "POST",
         headers: formPostHeaders,
         body: new URLSearchParams({ username: "nobody", password: "wrong" }).toString(),
@@ -23,7 +23,7 @@ describe("Rate limit — login/register", () => {
   test("register is also rate limited", async () => {
     const app = createTestApp();
     const attempt = (username: string) =>
-      app.request("/admin/register", {
+      app.request("/studio/register", {
         method: "POST",
         headers: formPostHeaders,
         body: new URLSearchParams({ username, password: "rahasia123" }).toString(),

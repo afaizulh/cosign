@@ -35,8 +35,8 @@ function saveAsset(
   return { ok: true, path: `${UPLOAD_DIR}/${randomUUID()}.${ext}`, ext };
 }
 /**
- * Admin controller (mounted at /admin): manage karya & parts.
- * Internal paths are relative — mount at "/admin" → /admin/karya*.
+ * Admin controller (mounted at /studio): manage karya & parts.
+ * Internal paths are relative — mount at "/studio" → /studio/*.
  */
 export function karyaAdminController(db: Db) {
   const app = new Hono<AppEnv>();
@@ -48,24 +48,66 @@ export function karyaAdminController(db: Db) {
 
   const karya = new KaryaModel(db.sqlite);
 
-  // GET /admin/karya — my works + create form
-  app.get("/karya", requireAuth(db), (c) => {
-    const userId = c.get("userId");
+  /** Shared overview data for the dashboard + publications list (batch, no N+1). */
+  function overview(userId: string) {
     const rows = karya.byUser(userId) as Array<Record<string, unknown>>;
-    // One batch query for all part counts instead of one per karya (N+1).
+    // Batch queries for the whole list instead of one per karya (N+1).
     const ids = rows.map((k) => String(k.id));
     const partsByKarya = karya.partsForMany(ids);
     const assetsByKarya = karya.assetCountsForMany(ids);
-    const items = rows.map((k) => ({
-      ...k,
-      part_count: (partsByKarya[String(k.id)] ?? []).length,
-      asset_count: assetsByKarya[String(k.id)] ?? 0,
-    }));
-    return view(c, "admin/karya/index", { karya: items, kategoriList: KATEGORI_LIST });
+    const likesByKarya = karya.likeCountsForMany(ids);
+    const items = rows.map((k) => {
+      const id = String(k.id);
+      const parts = partsByKarya[id] ?? [];
+      const present = [...new Set(parts.map((p) => p.kategori))];
+      const missing =
+        k.tipe === "2d" ? PART_KATEGORI.filter((kat) => !present.includes(kat)) : [];
+      return {
+        ...k,
+        parts: latestParts(parts),
+        like_count: likesByKarya[id] ?? 0,
+        part_count: parts.length,
+        asset_count: assetsByKarya[id] ?? 0,
+        present,
+        missing,
+      };
+    });
+    const stats = {
+      works: items.length,
+      parts: items.reduce((n, k) => n + (k.part_count as number), 0),
+      assets: items.reduce((n, k) => n + (k.asset_count as number), 0),
+      likes: items.reduce((n, k) => n + (k.like_count as number), 0),
+    };
+    const incomplete = items.filter((k) => (k.missing as string[]).length > 0);
+    return { items, incomplete, stats };
+  }
+
+  // GET /studio — creator dashboard: greeting, stats + works needing attention
+  app.get("/", requireAuth(db), (c) => {
+    const { items, incomplete, stats } = overview(c.get("userId"));
+    return view(c, "studio/dashboard", {
+      karya: items,
+      incomplete,
+      stats,
+    });
   });
 
-  // POST /admin/karya — create work (parts added later)
-  app.post("/karya", requireAuth(db), async (c) => {
+  // Legacy: the work list used to live at /studio/karya
+  app.get("/karya", (c) => c.redirect("/studio/publications", 301));
+
+  // GET /studio/publications — all works + create form
+  app.get("/publications", requireAuth(db), (c) => {
+    const { items, incomplete, stats } = overview(c.get("userId"));
+    return view(c, "studio/publications", {
+      karya: items,
+      incomplete,
+      stats,
+      kategoriList: KATEGORI_LIST,
+    });
+  });
+
+  // POST /studio/publications — create work (parts added later)
+  app.post("/publications", requireAuth(db), async (c) => {
     const body = await c.req.parseBody();
     const judul = String(body.judul ?? "").trim();
     const deskripsi = String(body.deskripsi ?? "").trim();
@@ -79,7 +121,7 @@ export function karyaAdminController(db: Db) {
     }
     if (!judul) {
       flashError(c, "Title is required.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     const id = karya.create({
       userId: c.get("userId") as string,
@@ -90,24 +132,24 @@ export function karyaAdminController(db: Db) {
     });
     if (tipe === "3d") {
       flashSuccess(c, "Work created. Now upload your 3D assets.");
-      return redirect(c, `/admin/karya/${id}/3d`);
+      return redirect(c, `/studio/karya/${id}/3d`);
     }
     flashSuccess(c, "Work created. Now add head, body & background images.");
-    return redirect(c, `/admin/karya/${id}`);
+    return redirect(c, `/studio/karya/${id}`);
   });
 
-  // GET /admin/karya/:id — manage parts (upload per category, delete part)
+  // GET /studio/karya/:id — manage parts (upload per category, delete part)
   app.get("/karya/:id", requireAuth(db), (c) => {
     const item = karya.findById(c.req.param("id")!);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     if (item.tipe === "3d") {
-      return redirect(c, `/admin/karya/${item.id}/3d`);
+      return redirect(c, `/studio/karya/${item.id}/3d`);
     }
     const parts = karya.parts(item.id);
-    return view(c, "admin/karya/show", {
+    return view(c, "studio/karya/show", {
       karya: item,
       byCategory: partsByCategory(parts),
       kategoriList: PART_KATEGORI,
@@ -115,33 +157,33 @@ export function karyaAdminController(db: Db) {
     });
   });
 
-  // GET /admin/karya/:id/3d — manage 3D assets
+  // GET /studio/karya/:id/3d — manage 3D assets
   app.get("/karya/:id/3d", requireAuth(db), (c) => {
     const item = karya.findById(c.req.param("id")!);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     if (item.tipe !== "3d") {
-      return redirect(c, `/admin/karya/${item.id}`);
+      return redirect(c, `/studio/karya/${item.id}`);
     }
-    return view(c, "admin/karya/show3d", {
+    return view(c, "studio/karya/show3d", {
       karya: item,
       assets: karya.assets(item.id),
       workKategoriList: KATEGORI_LIST,
     });
   });
 
-  // POST /admin/karya/:id/3d — upload a 3D asset
+  // POST /studio/karya/:id/3d — upload a 3D asset
   app.post("/karya/:id/3d", requireAuth(db), async (c) => {
     const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     if (item.tipe !== "3d") {
-      return redirect(c, `/admin/karya/${item.id}`);
+      return redirect(c, `/studio/karya/${item.id}`);
     }
     const body = await c.req.parseBody();
     const nama = String(body.nama ?? "").trim();
@@ -149,17 +191,17 @@ export function karyaAdminController(db: Db) {
 
     if (!(file instanceof File)) {
       flashError(c, "Choose a 3D file to upload.");
-      return redirect(c, `/admin/karya/${id}/3d`);
+      return redirect(c, `/studio/karya/${id}/3d`);
     }
     const saved = saveAsset(file);
     if (!saved.ok) {
       flashError(c, saved.error);
-      return redirect(c, `/admin/karya/${id}/3d`);
+      return redirect(c, `/studio/karya/${id}/3d`);
     }
     await Bun.write(saved.path, file);
     if (!existsSync(saved.path)) {
       flashError(c, "Failed to save the file on the server.");
-      return redirect(c, `/admin/karya/${id}/3d`);
+      return redirect(c, `/studio/karya/${id}/3d`);
     }
     karya.addAsset({
       karyaId: id,
@@ -168,21 +210,21 @@ export function karyaAdminController(db: Db) {
       mediaType: file.type || saved.ext,
     });
     flashSuccess(c, "3D asset uploaded.");
-    return redirect(c, `/admin/karya/${id}/3d`);
+    return redirect(c, `/studio/karya/${id}/3d`);
   });
 
-  // POST /admin/karya/:id/3d/:aid/delete — remove one 3D asset
+  // POST /studio/karya/:id/3d/:aid/delete — remove one 3D asset
   app.post("/karya/:id/3d/:aid/delete", requireAuth(db), (c) => {
     const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     const asset = karya.findAsset(c.req.param("aid")!);
     if (!asset || asset.karya_id !== id) {
       flashError(c, "Asset not found.");
-      return redirect(c, `/admin/karya/${id}/3d`);
+      return redirect(c, `/studio/karya/${id}/3d`);
     }
     karya.deleteAsset(asset.id);
     try {
@@ -191,16 +233,16 @@ export function karyaAdminController(db: Db) {
       // file already gone — ignore
     }
     flashSuccess(c, "3D asset deleted.");
-    return redirect(c, `/admin/karya/${id}/3d`);
+    return redirect(c, `/studio/karya/${id}/3d`);
   });
 
-  // POST /admin/karya/:id/edit — update title, description & category
+  // POST /studio/karya/:id/edit — update title, description & category
   app.post("/karya/:id/edit", requireAuth(db), async (c) => {
     const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     const body = await c.req.parseBody();
     const judul = String(body.judul ?? "").trim();
@@ -211,14 +253,14 @@ export function karyaAdminController(db: Db) {
     }
     if (!judul) {
       flashError(c, "Title is required.");
-      return redirect(c, `/admin/karya/${id}`);
+      return redirect(c, `/studio/karya/${id}`);
     }
     karya.update(id, { judul, deskripsi, kategori });
     flashSuccess(c, "Work updated.");
-    return redirect(c, `/admin/karya/${id}`);
+    return redirect(c, `/studio/karya/${id}`);
   });
 
-  // POST /admin/karya/:id/parts — upload a part image
+  // POST /studio/karya/:id/parts — upload a part image
   app.post(
     "/karya/:id/parts",
     requireAuth(db),
@@ -227,7 +269,7 @@ export function karyaAdminController(db: Db) {
       maxSize: MAX_UPLOAD_BODY,
       onError: (c) => {
         flashError(c, "Upload too large. Max 20MB.");
-        return redirect(c, `/admin/karya/${c.req.param("id")!}`);
+        return redirect(c, `/studio/karya/${c.req.param("id")!}`);
       },
     }),
     async (c) => {
@@ -235,7 +277,7 @@ export function karyaAdminController(db: Db) {
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     const body = await c.req.parseBody();
     const kategori = String(body.kategori ?? "").trim();
@@ -243,21 +285,21 @@ export function karyaAdminController(db: Db) {
 
     if (!PART_KATEGORI.includes(kategori)) {
       flashError(c, "Invalid part category.");
-      return redirect(c, `/admin/karya/${id}`);
+      return redirect(c, `/studio/karya/${id}`);
     }
     if (!(file instanceof File)) {
       flashError(c, "Choose an image file to upload.");
-      return redirect(c, `/admin/karya/${id}`);
+      return redirect(c, `/studio/karya/${id}`);
     }
     const saved = saveImage(file);
     if (!saved.ok) {
       flashError(c, saved.error);
-      return redirect(c, `/admin/karya/${id}`);
+      return redirect(c, `/studio/karya/${id}`);
     }
     await Bun.write(saved.path, file);
     if (!existsSync(saved.path)) {
       flashError(c, "Failed to save the image on the server.");
-      return redirect(c, `/admin/karya/${id}`);
+      return redirect(c, `/studio/karya/${id}`);
     }
     karya.addPart({
       karyaId: id,
@@ -266,21 +308,21 @@ export function karyaAdminController(db: Db) {
       mediaType: file.type,
     });
     flashSuccess(c, "Part added.");
-    return redirect(c, `/admin/karya/${id}`);
+    return redirect(c, `/studio/karya/${id}`);
   });
 
-  // POST /admin/karya/:id/parts/:pid/delete — remove one part
+  // POST /studio/karya/:id/parts/:pid/delete — remove one part
   app.post("/karya/:id/parts/:pid/delete", requireAuth(db), (c) => {
     const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     const part = karya.findPart(c.req.param("pid")!);
     if (!part) {
       flashError(c, "Part not found.");
-      return redirect(c, `/admin/karya/${id}`);
+      return redirect(c, `/studio/karya/${id}`);
     }
     karya.deletePart(part.id);
     try {
@@ -289,16 +331,16 @@ export function karyaAdminController(db: Db) {
       // file already gone — ignore
     }
     flashSuccess(c, "Part deleted.");
-    return redirect(c, `/admin/karya/${id}`);
+    return redirect(c, `/studio/karya/${id}`);
   });
 
-  // POST /admin/karya/:id/delete — remove work + all part files
+  // POST /studio/karya/:id/delete — remove work + all part files
   app.post("/karya/:id/delete", requireAuth(db), (c) => {
     const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
       flashError(c, "Work not found.");
-      return redirect(c, "/admin/karya");
+      return redirect(c, "/studio/publications");
     }
     for (const p of karya.parts(id)) {
       try {
@@ -317,7 +359,7 @@ export function karyaAdminController(db: Db) {
     new CommentModel(db.sqlite!).deleteByKarya(id);
     karya.delete(id);
     flashSuccess(c, "Work deleted.");
-    return redirect(c, "/admin/karya");
+    return redirect(c, "/studio/publications");
   });
 
   return app;

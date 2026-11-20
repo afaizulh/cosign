@@ -54,9 +54,10 @@ src/
 │   ├── session.model.ts    #   sessions
 │   └── karya.model.ts      #   karya + karya_parts + likes (parts, likeCount)
 ├── controllers/            # CONTROLLER — parse form → model → view/redirect
-│   ├── auth.controller.ts  #   /admin/login, /admin/register, /admin/logout
+│   ├── auth.controller.ts  #   /studio/login, /studio/register, /studio/logout
+│   ├── settings.controller.ts # /studio/settings — profil, bio, avatar
 │   ├── page.controller.ts  #   GET / (explore), GET /profil/:username
-│   └── karya.controller.ts #   karyaAdminController (mounted /admin) +
+│   └── karya.controller.ts #   karyaAdminController (mounted /studio) +
 │                           #   karyaPublicController (mounted /) — detail/customizer + like
 ├── middleware/
 │   ├── auth.middleware.ts  # getUserId / createSession / destroySession / requireAuth / redirectIfAuthenticated
@@ -66,7 +67,7 @@ src/
 views/                      # VIEW — template Eta
 ├── layouts/                # admin.eta.html & homepage.eta.html (pakai it.body)
 ├── partials/               # navbar, errors, karya-card (komposisi ter-layer)
-├── admin/                  # auth/ (login, register) + karya/ (index, show)
+├── studio/                 # dashboard, publications, settings, auth/, karya/
 └── homepage/               # index (explore), karya (customizer), profil
 public/                     # aset statis: style.css (Tailwind), customizer.js
 uploads/                    # gambar part hasil upload (di-gitignore)
@@ -79,7 +80,7 @@ test/                       # unit test
 
 - File template bernama `*.eta.html` — jangan ubah ekstensi (konfigurasi
   `defaultExtension` di `src/view.ts`).
-- Setiap halaman diawali `<% layout("/layouts/admin") %>` (atau homepage).
+- Setiap halaman diawali `<% layout("/layouts/studio") %>` (atau homepage).
   **Path layout/include WAJIB diawali `/`** agar relatif ke root `views/`
   (misal `include("/partials/errors", {...})`) — tanpa `/`, Eta resolve relatif
   ke folder template dan gagal.
@@ -112,12 +113,12 @@ test/                       # unit test
 
 ### Routing (kritis!)
 
-- `karyaAdminController` di-mount di `/admin` → internal path **relatif**
-  (`"karya"`, `"karya/:id"`, dst) → jadi `/admin/karya*`.
+- `karyaAdminController` di-mount di `/studio` → internal path **relatif**
+  (`""` → `/studio`, `"publications"`, `"karya/:id"`, dst) → `/studio/*`.
 - `karyaPublicController` di-mount di `/` → internal `"karya/:id"` → `/karya/:id`.
 - **JANGAN mount controller yang sama di dua prefix** jika hasil path-nya
   tumpang tindih — route pertama yang menang dan menyebabkan bug (pernah
-  terjadi: `/admin/karya/:id` ketimpa handler customizer).
+  terjadi: `/studio/karya/:id` ketimpa handler customizer).
 - Hapus karya/part: gunakan route POST khusus (`/delete`), bukan method DELETE.
 
 ### Form & Request
@@ -131,9 +132,9 @@ test/                       # unit test
 
 ### Auth & Middleware
 
-- `requireAuth(db)` redirect ke `/admin/login` (bukan 401 JSON).
+- `requireAuth(db)` redirect ke `/studio/login` (bukan 401 JSON).
 - `redirectIfAuthenticated(db)` untuk halaman guest (login/register) —
-  redirect ke `/admin/karya`.
+  redirect ke `/studio` (dashboard).
 - `injectLocals(db)` dipasang sekali di `web.ts` — resolve `it.user` + `it.flash`.
 - Session cookie `sid` (httpOnly, 7 hari). Password wajib `Bun.password`
   (argon2).
@@ -177,7 +178,7 @@ dibersihkan (hapus karya/part = file ikut terhapus).
   (gambar saja, ≤ 20MB).
 - **Menghapus owner check** — user lain bisa menghapus karya/part orang lain.
 - **Menambah part kategori baru** — wajib sinkron: konstanta controller,
-  label view (`labels` di `admin/karya/show` & `homepage/karya`), dan
+  label view (`labels` di `studio/karya/show` & `homepage/karya`), dan
   `karya-card` layer.
 - **Mengedit `public/style.css` langsung** — itu hasil compile Tailwind. Ubah
   `src/styles/input.css` lalu `bun run build:css`.

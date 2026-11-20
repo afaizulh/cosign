@@ -1,25 +1,27 @@
 <nav class="bg-white border-b border-slate-200">
   <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-    <a href="/" class="font-bold text-lg text-indigo-600">CoSign</a>
+    <a href="/" class="flex items-center gap-1.5 font-extrabold text-lg text-studio-navy tracking-tight">
+      <span class="w-7 h-7 rounded-lg bg-studio-gold text-studio-navy flex items-center justify-center text-sm">C</span>CoSign
+    </a>
     <div class="flex items-center gap-4 text-sm">
-      <a href="/" class="hover:text-indigo-600">Explore</a>
+      <a href="/" class="hover:text-studio-gold-deep font-medium">Explore</a>
       <% if (it.user) { %>
-        <a href="/admin/karya" class="hover:text-indigo-600">My Work</a>
+        <a href="/studio" class="inline-flex items-center gap-1 font-semibold hover:text-studio-gold-deep"><i class="bx bxs-dashboard text-base"></i> Studio</a>
         <% if (it.user.avatar_path) { %>
-          <a href="/admin/profil" class="flex items-center gap-2 hover:text-indigo-600">
+          <a href="/studio/settings" class="flex items-center gap-2 hover:text-studio-gold-deep">
             <img src="/uploads/<%= it.user.avatar_path.replace(/^uploads\//, '') %>" alt=""
-              class="w-7 h-7 rounded-full object-cover border border-slate-200" />
+              class="w-7 h-7 rounded-full object-cover border border-studio-gold" />
             <%= it.user.username %>
           </a>
         <% } else { %>
-          <a href="/admin/profil" class="hover:text-indigo-600"><%= it.user.username %></a>
+          <a href="/studio/settings" class="hover:text-studio-gold-deep"><%= it.user.username %></a>
         <% } %>
-        <form method="post" action="/admin/logout" class="inline">
-          <button type="submit" class="text-red-600 hover:text-red-700">Sign out</button>
+        <form method="post" action="/studio/logout" class="inline">
+          <button type="submit" class="text-rose-600 hover:text-rose-700">Sign out</button>
         </form>
       <% } else { %>
-        <a href="/admin/login" class="hover:text-indigo-600">Sign in</a>
-        <a href="/admin/register" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700">Register</a>
+        <a href="/studio/login" class="hover:text-studio-gold-deep font-medium">Sign in</a>
+        <a href="/studio/register" class="bg-studio-navy text-white px-3 py-1.5 rounded-lg hover:bg-studio-navy-deep font-semibold">Register</a>
       <% } %>
     </div>
   </div>

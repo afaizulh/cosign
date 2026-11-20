@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= it.title ?? "CoSign Studio" %></title>
+    <link rel="stylesheet" href="/style.css" />
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  </head>
+  <body class="bg-studio-paper text-slate-900 min-h-screen">
+    <div class="md:flex md:min-h-screen">
+      <!-- Sidebar (desktop) -->
+      <aside class="hidden md:flex w-64 shrink-0 flex-col bg-studio-navy text-white sticky top-0 h-screen">
+        <a href="/studio" class="flex items-center gap-2 px-6 pt-7 pb-6">
+          <span class="w-9 h-9 rounded-xl bg-studio-gold text-studio-navy flex items-center justify-center text-xl font-extrabold">C</span>
+          <span class="leading-tight">
+            <span class="block font-extrabold text-lg tracking-tight">CoSign</span>
+            <span class="block text-[11px] uppercase tracking-widest text-slate-300">Studio</span>
+          </span>
+        </a>
+        <% const tab = it.active ?? "dashboard"; %>
+        <nav class="flex-1 px-3 space-y-1 text-sm">
+          <a href="/studio"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium <%= tab === "dashboard" ? "bg-white/10 text-white" : "text-slate-200 hover:bg-white/10 hover:text-white" %>">
+            <i class="bx bxs-dashboard text-lg <%= tab === "dashboard" ? "text-studio-gold" : "" %>"></i> Dashboard
+          </a>
+          <a href="/studio/publications"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium <%= tab === "publications" ? "bg-white/10 text-white" : "text-slate-200 hover:bg-white/10 hover:text-white" %>">
+            <i class="bx bx-collection text-lg <%= tab === "publications" ? "text-studio-gold" : "" %>"></i> Publications
+          </a>
+          <a href="/studio/settings"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium <%= tab === "settings" ? "bg-white/10 text-white" : "text-slate-200 hover:bg-white/10 hover:text-white" %>">
+            <i class="bx bx-cog text-lg <%= tab === "settings" ? "text-studio-gold" : "" %>"></i> Settings
+          </a>
+        </nav>
+        <% if (it.user) { %>
+          <div class="p-4 border-t border-white/10">
+            <div class="flex items-center gap-3 px-1 pb-3">
+              <% if (it.user.avatar_path) { %>
+                <img src="/uploads/<%= it.user.avatar_path.replace(/^uploads\//, '') %>" alt=""
+                  class="w-10 h-10 rounded-full object-cover border-2 border-studio-gold" />
+              <% } else { %>
+                <div class="w-10 h-10 rounded-full bg-studio-navy-soft border-2 border-studio-gold flex items-center justify-center font-bold text-studio-gold">
+                  <%= it.user.username.charAt(0).toUpperCase() %>
+                </div>
+              <% } %>
+              <div class="min-w-0">
+                <p class="font-semibold truncate text-sm"><%= it.user.full_name || it.user.username %></p>
+                <p class="text-xs text-slate-300 truncate">@<%= it.user.username %></p>
+              </div>
+            </div>
+            <form method="post" action="/studio/logout">
+              <button type="submit"
+                class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border border-white/20 text-slate-200 hover:bg-white/10 hover:text-white">
+                <i class="bx bx-log-out"></i> Sign out
+              </button>
+            </form>
+          </div>
+        <% } %>
+      </aside>
+
+      <!-- Topbar (mobile) -->
+      <div class="md:hidden bg-studio-navy text-white sticky top-0 z-20">
+        <div class="flex items-center justify-between px-4 py-3">
+          <a href="/studio" class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg bg-studio-gold text-studio-navy flex items-center justify-center font-extrabold">C</span>
+            <span class="font-extrabold">CoSign <span class="font-normal text-slate-300 text-sm">Studio</span></span>
+          </a>
+          <% if (it.user) { %>
+            <form method="post" action="/studio/logout">
+              <button type="submit" class="text-sm text-slate-200"><i class="bx bx-log-out text-xl"></i></button>
+            </form>
+          <% } %>
+        </div>
+        <nav class="flex gap-1 px-3 pb-3 text-sm overflow-x-auto">
+          <a href="/studio" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "dashboard" ? "bg-white/10 font-medium" : "text-slate-200" %>">
+            <i class="bx bxs-dashboard"></i> Dashboard
+          </a>
+          <a href="/studio/publications" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "publications" ? "bg-white/10 font-medium" : "text-slate-200" %>">
+            <i class="bx bx-collection"></i> Publications
+          </a>
+          <a href="/studio/settings" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "settings" ? "bg-white/10 font-medium" : "text-slate-200" %>">
+            <i class="bx bx-cog"></i> Settings
+          </a>
+        </nav>
+      </div>
+
+      <!-- Content -->
+      <div class="flex-1 min-w-0 flex flex-col">
+        <main class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1">
+          <% if (it.flash) { %>
+            <div class="<%= it.flash.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-red-50 border-red-300 text-red-800' %> border px-4 py-3 rounded-xl mb-6 flex items-start gap-2">
+              <i class="bx <%= it.flash.type === 'success' ? 'bx-check-circle' : 'bx-error-circle' %> text-xl leading-none mt-0.5"></i>
+              <span><%= it.flash.message %></span>
+            </div>
+          <% } %>
+          <%~ it.body %>
+        </main>
+        <footer class="text-center text-xs text-slate-400 py-6">CoSign Studio · Venture Studio CCIT-FTUI</footer>
+      </div>
+    </div>
+  </body>
+</html>

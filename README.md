@@ -27,7 +27,7 @@ terpisah. Gambar part disimpan di `uploads/` dan di-serve statis.
 ```mermaid
 flowchart LR
     Browser["Browser<br/>form POST · Tailwind + vanilla JS"]
-    Web["Hono Web Routes<br/>/ · /admin/* · /karya/:id"]
+    Web["Hono Web Routes<br/>/ · /studio/* · /karya/:id"]
     Ctrl["Controllers<br/>auth · page · karya"]
     Model["Models<br/>user · session · karya"]
     View["Eta Views<br/>views/ · layouts + partials"]
@@ -66,8 +66,8 @@ cosign/
 │   │   ├── karya.model.ts      #   karya + karya_parts + likes
 │   │   └── comment.model.ts    #   comments: komentar per karya
 │   ├── controllers/            # CONTROLLER — form POST → model → view/redirect
-│   │   ├── auth.controller.ts  #   /admin/login, /admin/register, /admin/logout
-│   │   ├── profil.controller.ts #  /admin/profil — edit profil, bio, avatar
+│   │   ├── auth.controller.ts  #   /studio/login, /studio/register, /studio/logout
+│   │   ├── settings.controller.ts # /studio/settings — profil, bio, avatar, akun
 │   │   ├── page.controller.ts  #   GET / (explore), GET /profil/:username
 │   │   └── karya.controller.ts #   admin CRUD + parts, publik detail/customizer + like + komentar
 │   ├── middleware/
@@ -78,7 +78,7 @@ cosign/
 ├── views/                      # VIEW — template Eta (Blade/EJS-like)
 │   ├── layouts/                #   layout admin & homepage
 │   ├── partials/               #   navbar, error list, kartu karya ter-layer
-│   ├── admin/                  #   tampilan admin (auth + kelola karya/parts)
+│   ├── studio/                 #   tampilan studio (auth + kelola karya/parts)
 │   └── homepage/               #   tampilan depan (explore, customizer, profil)
 ├── public/                     # aset statis (style.css Tailwind, customizer.js)
 ├── uploads/                    # gambar part hasil upload (di-gitignore)
@@ -112,24 +112,27 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 | POST | `/karya/:id/comments` | tambah komentar | ✓ |
 | POST | `/karya/:id/comments/:cid/delete` | hapus komentar (penulis / pemilik karya) | ✓ |
 | GET | `/profil/:username` | `homepage/profil` — profil publik | - |
-| GET | `/admin/login` | `admin/auth/login` | guest |
-| POST | `/admin/login` | login → `/admin/karya` | guest |
-| GET | `/admin/register` | `admin/auth/register` | guest |
-| POST | `/admin/register` | buat user → `/admin/karya` | guest |
-| POST | `/admin/logout` | logout → `/` | ✓ |
-| GET | `/admin/profil` | `admin/profil/edit` — edit profil | ✓ |
-| POST | `/admin/profil` | update full name & bio | ✓ |
-| POST | `/admin/profil/avatar` | upload / ganti avatar | ✓ |
-| POST | `/admin/profil/avatar/delete` | hapus avatar | ✓ |
-| GET | `/admin/karya` | `admin/karya/index` — karya saya + form buat | ✓ |
-| POST | `/admin/karya` | buat karya (judul, deskripsi, kategori) | ✓ |
-| GET | `/admin/karya/:id` | `admin/karya/show` — kelola parts (2D) | ✓ (owner) |
-| POST | `/admin/karya/:id/parts` | upload part gambar (kepala/badan/background) | ✓ (owner) |
-| POST | `/admin/karya/:id/parts/:pid/delete` | hapus part | ✓ (owner) |
-| GET | `/admin/karya/:id/3d` | `admin/karya/show3d` — kelola asset 3D | ✓ (owner) |
-| POST | `/admin/karya/:id/3d` | upload asset 3D (GLB/GLTF/OBJ/FBX/STL/USDZ) | ✓ (owner) |
-| POST | `/admin/karya/:id/3d/:aid/delete` | hapus asset 3D | ✓ (owner) |
-| POST | `/admin/karya/:id/delete` | hapus karya + semua file part/asset | ✓ (owner) |
+| GET | `/studio/login` | `studio/auth/login` | guest |
+| POST | `/studio/login` | login → `/studio` | guest |
+| GET | `/studio/register` | `studio/auth/register` | guest |
+| POST | `/studio/register` | buat user → `/studio` | guest |
+| POST | `/studio/logout` | logout → `/` | ✓ |
+| GET | `/studio/settings` | `studio/settings` — profil, halaman publik & akun | ✓ |
+| GET | `/studio/profil` | 301 → `/studio/settings` (path lama) | — |
+| POST | `/studio/settings` | update full name & bio | ✓ |
+| POST | `/studio/settings/avatar` | upload / ganti avatar | ✓ |
+| POST | `/studio/settings/avatar/delete` | hapus avatar | ✓ |
+| GET | `/studio` | `studio/dashboard` — sapaan + statistik + karya belum lengkap | ✓ |
+| GET | `/studio/karya` | 301 → `/studio/publications` (path lama) | — |
+| GET | `/studio/publications` | `studio/publications` — semua karya + form buat | ✓ |
+| POST | `/studio/publications` | buat karya (judul, deskripsi, kategori, tipe) | ✓ |
+| GET | `/studio/karya/:id` | `studio/karya/show` — kelola parts (2D) | ✓ (owner) |
+| POST | `/studio/karya/:id/parts` | upload part gambar (kepala/badan/background) | ✓ (owner) |
+| POST | `/studio/karya/:id/parts/:pid/delete` | hapus part | ✓ (owner) |
+| GET | `/studio/karya/:id/3d` | `studio/karya/show3d` — kelola asset 3D | ✓ (owner) |
+| POST | `/studio/karya/:id/3d` | upload asset 3D (GLB/GLTF/OBJ/FBX/STL/USDZ) | ✓ (owner) |
+| POST | `/studio/karya/:id/3d/:aid/delete` | hapus asset 3D | ✓ (owner) |
+| POST | `/studio/karya/:id/delete` | hapus karya + semua file part/asset | ✓ (owner) |
 
 Semua mutasi via form POST (PRG). Karya punya `tipe` **2d** (part gambar) atau
 **3d** (asset 3D). Upload gambar (part & avatar) divalidasi: hanya
