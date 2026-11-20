@@ -3,14 +3,16 @@
 <% const avatar = it.profil && it.profil.avatar_path ? "/uploads/" + it.profil.avatar_path.replace(/^uploads\//, "") : null; %>
 <% const publicPath = "/profil/" + it.profil.username; %>
 
-<div class="max-w-2xl mx-auto">
+<div>
   <div class="mb-6">
     <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Settings</h1>
     <p class="text-sm text-slate-500 mt-0.5">Manage your profile, your public page and your account.</p>
   </div>
 
+  <div class="grid xl:grid-cols-[1fr_380px] gap-5 items-start">
+  <div class="space-y-5">
   <!-- Avatar -->
-  <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-5">
+  <section class="bg-white border border-slate-200 rounded-2xl p-6">
     <h2 class="font-bold text-studio-navy mb-4 flex items-center gap-1.5"><i class="bx bx-image text-xl text-studio-gold-deep"></i> Avatar</h2>
     <div class="flex flex-wrap items-center gap-5">
       <% if (avatar) { %>
@@ -37,7 +39,7 @@
   </section>
 
   <!-- Profile details -->
-  <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-5">
+  <section class="bg-white border border-slate-200 rounded-2xl p-6">
     <h2 class="font-bold text-studio-navy mb-4 flex items-center gap-1.5"><i class="bx bx-edit text-xl text-studio-gold-deep"></i> Profile details</h2>
     <form method="post" action="/studio/settings" class="space-y-4">
       <div>
@@ -63,8 +65,10 @@
     </form>
   </section>
 
+  </div>
+  <div class="space-y-5">
   <!-- Public profile -->
-  <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-5">
+  <section class="bg-white border border-slate-200 rounded-2xl p-6">
     <h2 class="font-bold text-studio-navy mb-1 flex items-center gap-1.5"><i class="bx bx-id-card text-xl text-studio-gold-deep"></i> Public profile</h2>
     <p class="text-sm text-slate-500 mb-3">This is the page other people see when they visit your profile.</p>
     <div class="flex flex-wrap items-center justify-between gap-3 bg-studio-paper border border-slate-200 rounded-xl px-4 py-3">
@@ -86,4 +90,6 @@
       </button>
     </form>
   </section>
+  </div>
+  </div>
 </div>
