@@ -32,15 +32,27 @@
           <%~ link("log", "/admin/log", "bx-history", "Activity log") %>
         </nav>
         <div class="p-4 border-t border-white/10 space-y-2">
+          <% if (it.user) { %>
+            <div class="flex items-center gap-2 px-1 pb-2">
+              <span class="w-8 h-8 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shrink-0 border-2 border-red-400/50"><%= it.user.username.charAt(0).toUpperCase() %></span>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-white truncate">@<%= it.user.username %></p>
+                <p class="text-[10px] uppercase tracking-wider <%= it.user.role === "superadmin" ? "text-amber-300" : "text-red-300" %> font-bold"><%= it.user.role %></p>
+              </div>
+            </div>
+          <% } %>
           <a href="/" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
             <i class="bx bx-link-external"></i> View public site
           </a>
           <a href="/studio" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
             <i class="bx bxs-dashboard"></i> My studio
           </a>
-          <% if (it.user) { %>
-            <p class="px-2 pt-2 text-[11px] text-slate-400 truncate">Signed in as <span class="font-semibold text-white">@<%= it.user.username %></span></p>
-          <% } %>
+          <form method="post" action="/studio/logout">
+            <button type="submit"
+              class="w-full flex items-center justify-center gap-2 px-2 py-2 rounded-lg text-xs font-bold border border-white/20 text-slate-200 hover:bg-red-500/20 hover:text-white hover:border-red-400/40">
+              <i class="bx bx-log-out text-base"></i> Sign out
+            </button>
+          </form>
         </div>
       </aside>
 
@@ -51,7 +63,14 @@
             <span class="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center"><i class="bx bx-shield-quarter"></i></span>
             Admin
           </a>
-          <a href="/" class="text-xs text-slate-300"><i class="bx bx-link-external"></i> Site</a>
+          <div class="flex items-center gap-3">
+            <a href="/" class="text-xs text-slate-300"><i class="bx bx-link-external"></i> Site</a>
+            <form method="post" action="/studio/logout">
+              <button type="submit" title="Sign out" class="text-slate-300 hover:text-white">
+                <i class="bx bx-log-out text-xl"></i>
+              </button>
+            </form>
+          </div>
         </div>
         <nav class="flex gap-1 px-3 pb-3 text-sm overflow-x-auto">
           <a href="/admin" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "dashboard" ? "bg-white/10 font-medium" : "text-slate-300" %>"><i class="bx bxs-dashboard"></i> Overview</a>
