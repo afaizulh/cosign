@@ -196,7 +196,9 @@ describe("Web — auth", () => {
 
     const karya = await app.request("/studio/publications", { headers: { cookie } });
     expect(karya.status).toBe(302);
-    expect(karya.headers.get("location")).toBe("/studio/login");
+    expect(karya.headers.get("location")).toBe(
+      "/studio/login?next=" + encodeURIComponent("/studio/publications")
+    );
   });
 });
 
@@ -206,7 +208,10 @@ describe("Web — /admin prefix", () => {
     for (const path of ["/admin", "/admin/works", "/admin/users", "/admin/log"]) {
       const res = await app.request(path);
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toBe("/studio/login");
+      // Login remembers the target so the admin lands back on /admin.
+      expect(res.headers.get("location")).toBe(
+        "/studio/login?next=" + encodeURIComponent(path)
+      );
     }
   });
 
@@ -215,17 +220,23 @@ describe("Web — /admin prefix", () => {
     // /admin/profil no longer 301s to /studio/settings; it is an admin-only 302.
     const res = await app.request("/admin/profil");
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/studio/login");
+    expect(res.headers.get("location")).toBe(
+      "/studio/login?next=" + encodeURIComponent("/admin/profil")
+    );
   });
 });
 
 describe("Web — karya (auth)", () => {
   test("GET /studio & /studio/publications without login → 302 /studio/login", async () => {
     const app = createTestApp();
-    for (const path of ["/studio", "/studio/publications"]) {
+    // "/studio" is the default landing, so it does not need a `next` round-trip.
+    for (const [path, login] of [
+      ["/studio", "/studio/login"],
+      ["/studio/publications", "/studio/login?next=%2Fstudio%2Fpublications"],
+    ]) {
       const res = await app.request(path);
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toBe("/studio/login");
+      expect(res.headers.get("location")).toBe(login);
     }
   });
 
@@ -1093,7 +1104,9 @@ describe("Web — settings", () => {
     const app = createTestApp();
     const res = await app.request("/studio/settings");
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/studio/login");
+    expect(res.headers.get("location")).toBe(
+      "/studio/login?next=" + encodeURIComponent("/studio/settings")
+    );
   });
 
   test("GET /studio/settings → renders profile, public page & account sections", async () => {

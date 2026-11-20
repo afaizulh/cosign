@@ -16,7 +16,9 @@ describe("Admin — access control", () => {
     for (const path of ["/admin", "/admin/works", "/admin/users", "/admin/log"]) {
       const res = await app.request(path);
       expect(res.status).toBe(302);
-      expect(res.headers.get("location")).toBe("/studio/login");
+      expect(res.headers.get("location")).toBe(
+        "/studio/login?next=" + encodeURIComponent(path)
+      );
     }
   });
 
@@ -49,6 +51,85 @@ describe("Admin — access control", () => {
     expect(dash).toContain("Overview");
     expect(dash).toContain("Works");
     expect(dash).toContain("Users");
+  });
+});
+
+describe("Admin — login round-trip", () => {
+  test("login form carries next and lands back on /admin", async () => {
+    const sqlite = createTestDb();
+    const users = new UserModel(sqlite);
+    const app = createApp({ driver: "sqlite", sqlite, supabase: null });
+    await registerUser(app, "boss");
+    users.setRole(users.idByUsername("boss")!, "admin");
+
+    // Guest hits /admin → login URL remembers the target
+    const guard = await app.request("/admin/works");
+    expect(guard.headers.get("location")).toBe("/studio/login?next=%2Fadmin%2Fworks");
+
+    // Login page embeds next in the form
+    const page = await (
+      await app.request("/studio/login?next=%2Fadmin%2Fworks")
+    ).text();
+    expect(page).toContain('name="next" value="/admin/works"');
+
+    // Successful login → straight to the admin page
+    const login = await app.request("/studio/login?next=%2Fadmin%2Fworks", {
+      method: "POST",
+      headers: formPostHeaders,
+      body: new URLSearchParams({
+        username: "boss",
+        password: "rahasia123",
+        next: "/admin/works",
+      }).toString(),
+    });
+    expect(login.status).toBe(302);
+    expect(login.headers.get("location")).toBe("/admin/works");
+  });
+
+  test("off-site next values are ignored (no open redirect)", async () => {
+    const app = createTestApp();
+    await registerUser(app, "boss");
+
+    for (const evil of ["//evil.com", "https://evil.com", "/\\evil.com"]) {
+      const res = await app.request("/studio/login", {
+        method: "POST",
+        headers: formPostHeaders,
+        body: new URLSearchParams({
+          username: "boss",
+          password: "rahasia123",
+          next: evil,
+        }).toString(),
+      });
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/studio");
+    }
+  });
+
+  test("already-logged-in admin opening /studio/login?next=/admin goes straight there", async () => {
+    const sqlite = createTestDb();
+    const users = new UserModel(sqlite);
+    const app = createApp({ driver: "sqlite", sqlite, supabase: null });
+    const cookie = await registerUser(app, "boss");
+    users.setRole(users.idByUsername("boss")!, "admin");
+
+    const res = await app.request("/studio/login?next=%2Fadmin", { headers: { cookie } });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/admin");
+  });
+
+  test("studio shows an Admin panel shortcut only for admins", async () => {
+    const sqlite = createTestDb();
+    const users = new UserModel(sqlite);
+    const app = createApp({ driver: "sqlite", sqlite, supabase: null });
+
+    const memberCookie = await registerUser(app, "member1");
+    const memberHtml = await (await app.request("/studio", { headers: { cookie: memberCookie } })).text();
+    expect(memberHtml).not.toContain('href="/admin"');
+
+    users.setRole(users.idByUsername("member1")!, "admin");
+    const adminHtml = await (await app.request("/studio", { headers: { cookie: memberCookie } })).text();
+    expect(adminHtml).toContain('href="/admin"');
+    expect(adminHtml).toContain("Admin panel");
   });
 });
 

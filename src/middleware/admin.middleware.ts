@@ -2,7 +2,7 @@ import type { Context, Next } from "hono";
 import type { Db } from "../db";
 import type { AppEnv } from "../view";
 import { UserModel } from "../models/user.model";
-import { getUserId, destroySession } from "./auth.middleware";
+import { getUserId, destroySession, loginUrl } from "./auth.middleware";
 
 /**
  * Middleware: suspend gate for logged-in users.
@@ -29,7 +29,7 @@ export function requireActiveAccount(db: Db) {
 export function requireAdmin(db: Db) {
   return async (c: Context<AppEnv>, next: Next) => {
     const userId = getUserId(c, db);
-    if (!userId) return c.redirect("/studio/login", 302);
+    if (!userId) return c.redirect(loginUrl(c), 302);
     if (!db.sqlite) return c.text("supabase mode not implemented", 501);
     const users = new UserModel(db.sqlite);
     if (!users.isActive(userId)) {
