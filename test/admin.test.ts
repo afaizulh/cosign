@@ -117,19 +117,22 @@ describe("Admin — login round-trip", () => {
     expect(res.headers.get("location")).toBe("/admin");
   });
 
-  test("studio shows an Admin panel shortcut only for admins", async () => {
+  test("studio shows an Admin panel shortcut for admins AND superadmins", async () => {
     const sqlite = createTestDb();
     const users = new UserModel(sqlite);
     const app = createApp({ driver: "sqlite", sqlite, supabase: null });
 
-    const memberCookie = await registerUser(app, "member1");
-    const memberHtml = await (await app.request("/studio", { headers: { cookie: memberCookie } })).text();
-    expect(memberHtml).not.toContain('href="/admin"');
+    const cookie = await registerUser(app, "member1");
+    const asMember = await (await app.request("/studio", { headers: { cookie } })).text();
+    expect(asMember).not.toContain('href="/admin"');
 
-    users.setRole(users.idByUsername("member1")!, "admin");
-    const adminHtml = await (await app.request("/studio", { headers: { cookie: memberCookie } })).text();
-    expect(adminHtml).toContain('href="/admin"');
-    expect(adminHtml).toContain("Admin panel");
+    // Both privileged roles must see the shortcut (regression: superadmin was missed).
+    for (const role of ["admin", "superadmin"] as const) {
+      users.setRole(users.idByUsername("member1")!, role);
+      const html = await (await app.request("/studio", { headers: { cookie } })).text();
+      expect(html).toContain('href="/admin"');
+      expect(html).toContain("Admin panel");
+    }
   });
 });
 
