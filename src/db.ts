@@ -44,6 +44,10 @@ export function migrate(db: Database) {
       bio TEXT,
       avatar_path TEXT,
       password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',        -- 'member' | 'admin'
+      status TEXT NOT NULL DEFAULT 'active',      -- 'active' | 'suspended'
+      suspended_at TEXT,
+      suspended_reason TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -60,6 +64,10 @@ export function migrate(db: Database) {
       deskripsi TEXT,
       kategori TEXT,
       tipe TEXT NOT NULL DEFAULT '2d',   -- '2d' | '3d'
+      status TEXT NOT NULL DEFAULT 'published',  -- 'published' | 'taken_down'
+      takedown_reason TEXT,
+      takedown_by TEXT,
+      takedown_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -88,6 +96,18 @@ export function migrate(db: Database) {
 
     CREATE INDEX IF NOT EXISTS idx_comments_karya ON comments(karya_id, created_at);
 
+    CREATE TABLE IF NOT EXISTS moderation_log (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL,
+      action TEXT NOT NULL,          -- 'karya.takedown' | 'karya.restore' | 'user.suspend' | ...
+      target_type TEXT NOT NULL,     -- 'karya' | 'user'
+      target_id TEXT NOT NULL,
+      reason TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_moderation_log_created ON moderation_log(created_at DESC);
+
     CREATE TABLE IF NOT EXISTS karya_assets (
       id TEXT PRIMARY KEY,
       karya_id TEXT NOT NULL,
@@ -102,6 +122,31 @@ export function migrate(db: Database) {
   const karyaCols = db.query("PRAGMA table_info(karya)").all() as { name: string }[];
   if (!karyaCols.some((c) => c.name === "tipe")) {
     db.exec("ALTER TABLE karya ADD COLUMN tipe TEXT NOT NULL DEFAULT '2d';");
+  }
+
+  // Moderation columns for databases created before the admin panel.
+  const userCols = db.query("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!userCols.some((c) => c.name === "role")) {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member';");
+  }
+  if (!userCols.some((c) => c.name === "status")) {
+    db.exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';");
+  }
+  if (!userCols.some((c) => c.name === "suspended_at")) {
+    db.exec("ALTER TABLE users ADD COLUMN suspended_at TEXT;");
+  }
+  if (!userCols.some((c) => c.name === "suspended_reason")) {
+    db.exec("ALTER TABLE users ADD COLUMN suspended_reason TEXT;");
+  }
+
+  const karyaStatusCols = db.query("PRAGMA table_info(karya)").all() as { name: string }[];
+  for (const [name, ddl] of [
+    ["status", "ALTER TABLE karya ADD COLUMN status TEXT NOT NULL DEFAULT 'published';"],
+    ["takedown_reason", "ALTER TABLE karya ADD COLUMN takedown_reason TEXT;"],
+    ["takedown_by", "ALTER TABLE karya ADD COLUMN takedown_by TEXT;"],
+    ["takedown_at", "ALTER TABLE karya ADD COLUMN takedown_at TEXT;"],
+  ] as const) {
+    if (!karyaStatusCols.some((c) => c.name === name)) db.exec(ddl);
   }
 
   // Migrate old karya schema (media_path/media_type columns on karya) → karya_parts.

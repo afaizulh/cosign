@@ -19,6 +19,12 @@ export class CommentModel {
   constructor(private db: Database) {}
 
   /** List comments of one karya (oldest first) with author info. */
+  /** Total comments (admin dashboard). */
+  countAll(): number {
+    const row = this.db.query("SELECT COUNT(*) AS n FROM comments").get() as { n: number };
+    return row.n;
+  }
+
   byKarya(karyaId: string): CommentWithAuthor[] {
     return this.db
       .query(

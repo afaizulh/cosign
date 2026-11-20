@@ -1,0 +1,247 @@
+import { Hono } from "hono";
+import type { Context } from "hono";
+import type { Db } from "../db";
+import { UserModel, type UserStatus } from "../models/user.model";
+import { KaryaModel } from "../models/karya.model";
+import { CommentModel } from "../models/comment.model";
+import { ModerationModel } from "../models/moderation.model";
+import { requireAdmin } from "../middleware/admin.middleware";
+import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
+import { withComposition } from "../composition";
+
+/**
+ * Admin controller (mounted at /admin): moderation & management.
+ * All mutations are form POST + redirect (PRG) — no JSON API.
+ */
+export function adminController(db: Db) {
+  const app = new Hono<AppEnv>();
+
+  if (!db.sqlite) {
+    app.all("*", (c) => c.text("supabase mode not implemented", 501));
+    return app;
+  }
+
+  const users = new UserModel(db.sqlite);
+  const karya = new KaryaModel(db.sqlite);
+  const comments = new CommentModel(db.sqlite);
+  const log = new ModerationModel(db.sqlite);
+
+  app.use("*", requireAdmin(db));
+
+  /** Guard: an admin must never lock themselves out of their own account. */
+  function selfGuard(c: Context<AppEnv>, targetId: string) {
+    if (targetId === c.get("userId")) {
+      flashError(c, "You cannot moderate your own account.");
+      return false;
+    }
+    return true;
+  }
+
+  // GET /admin — dashboard
+  app.get("/", (c) => {
+    const allUsers = users.listForAdmin();
+    const allKarya = karya.listForAdmin();
+    const counts = {
+      users: allUsers.length,
+      suspended: allUsers.filter((u) => u.status === "suspended").length,
+      admins: allUsers.filter((u) => u.role === "admin").length,
+      works: allKarya.length,
+      takenDown: allKarya.filter((k) => k.status === "taken_down").length,
+      comments: comments.countAll(),
+    };
+    return view(c, "admin/dashboard", {
+      counts,
+      recentLog: log.recent(8),
+      recentTakedowns: allKarya.filter((k) => k.status === "taken_down").slice(0, 5),
+    });
+  });
+
+  // GET /admin/works — all works with status filter
+  app.get("/works", (c) => {
+    const status = c.req.query("status") ?? "";
+    const q = c.req.query("q")?.trim() ?? "";
+    const rows = karya.listForAdmin({
+      status: status === "taken_down" || status === "published" ? status : undefined,
+      q: q || undefined,
+    });
+    return view(c, "admin/works/index", {
+      karya: rows,
+      aktif: status,
+      q,
+    });
+  });
+
+  // GET /admin/works/:id — preview + moderation panel
+  app.get("/works/:id", (c) => {
+    const item = karya.findById(c.req.param("id")!);
+    if (!item) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/works");
+    }
+    const rows = withComposition([item], karya) as Array<
+      Record<string, unknown> & { parts: Record<string, string>; like_count: number }
+    >;
+    const withComp = rows[0];
+    return view(c, "admin/works/show", {
+      karya: withComp,
+      raw: item,
+      author: users.findForAdmin(item.user_id),
+      history: log.forTarget("karya", item.id),
+      comments: comments.byKarya(item.id),
+    });
+  });
+
+  // POST /admin/works/:id/takedown — soft delete with a reason
+  app.post("/works/:id/takedown", async (c) => {
+    const id = c.req.param("id")!;
+    const item = karya.findById(id);
+    if (!item) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/works");
+    }
+    const body = await c.req.parseBody();
+    const reason = String(body.reason ?? "").trim();
+    if (!reason) {
+      flashError(c, "A reason is required to take a work down.");
+      return redirect(c, `/admin/works/${id}`);
+    }
+    karya.takedown(id, c.get("userId") as string, reason);
+    log.log({
+      adminId: c.get("userId") as string,
+      action: "karya.takedown",
+      targetType: "karya",
+      targetId: id,
+      reason,
+    });
+    flashSuccess(c, `"${item.judul}" is now hidden from the public site.`);
+    return redirect(c, `/admin/works/${id}`);
+  });
+
+  // POST /admin/works/:id/restore — undo a takedown
+  app.post("/works/:id/restore", (c) => {
+    const id = c.req.param("id")!;
+    const item = karya.findById(id);
+    if (!item) {
+      flashError(c, "Work not found.");
+      return redirect(c, "/admin/works");
+    }
+    karya.restore(id);
+    log.log({
+      adminId: c.get("userId") as string,
+      action: "karya.restore",
+      targetType: "karya",
+      targetId: id,
+    });
+    flashSuccess(c, `"${item.judul}" is public again.`);
+    return redirect(c, `/admin/works/${id}`);
+  });
+
+  // GET /admin/users — all accounts with status filter
+  app.get("/users", (c) => {
+    const status = c.req.query("status") ?? "";
+    const q = c.req.query("q")?.trim() ?? "";
+    const rows = users.listForAdmin({
+      status: status === "active" || status === "suspended" ? (status as UserStatus) : undefined,
+      q: q || undefined,
+    });
+    return view(c, "admin/users/index", { users: rows, aktif: status, q });
+  });
+
+  // GET /admin/users/:id — account detail + moderation panel
+  app.get("/users/:id", (c) => {
+    const target = users.findForAdmin(c.req.param("id")!);
+    if (!target) {
+      flashError(c, "User not found.");
+      return redirect(c, "/admin/users");
+    }
+    return view(c, "admin/users/show", {
+      target,
+      isSelf: target.id === c.get("userId"),
+      works: karya.listForAdmin().filter((k) => k.user_id === target.id),
+      history: log.forTarget("user", target.id),
+    });
+  });
+
+  // POST /admin/users/:id/suspend — deactivate + kill all sessions
+  app.post("/users/:id/suspend", async (c) => {
+    const id = c.req.param("id")!;
+    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
+    const target = users.findForAdmin(id);
+    if (!target) {
+      flashError(c, "User not found.");
+      return redirect(c, "/admin/users");
+    }
+    const body = await c.req.parseBody();
+    const reason = String(body.reason ?? "").trim();
+    if (!reason) {
+      flashError(c, "A reason is required to suspend an account.");
+      return redirect(c, `/admin/users/${id}`);
+    }
+    users.suspend(id, reason);
+    // Suspension is immediate: drop every session so no tab stays logged in.
+    db.sqlite!.query("DELETE FROM sessions WHERE user_id = ?").run(id);
+    log.log({
+      adminId: c.get("userId") as string,
+      action: "user.suspend",
+      targetType: "user",
+      targetId: id,
+      reason,
+    });
+    flashSuccess(c, `@${target.username} is suspended. Their works are hidden.`);
+    return redirect(c, `/admin/users/${id}`);
+  });
+
+  // POST /admin/users/:id/reactivate
+  app.post("/users/:id/reactivate", (c) => {
+    const id = c.req.param("id")!;
+    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
+    const target = users.findForAdmin(id);
+    if (!target) {
+      flashError(c, "User not found.");
+      return redirect(c, "/admin/users");
+    }
+    users.reactivate(id);
+    log.log({
+      adminId: c.get("userId") as string,
+      action: "user.reactivate",
+      targetType: "user",
+      targetId: id,
+    });
+    flashSuccess(c, `@${target.username} is active again.`);
+    return redirect(c, `/admin/users/${id}`);
+  });
+
+  // POST /admin/users/:id/role — promote / demote
+  app.post("/users/:id/role", async (c) => {
+    const id = c.req.param("id")!;
+    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
+    const target = users.findForAdmin(id);
+    if (!target) {
+      flashError(c, "User not found.");
+      return redirect(c, "/admin/users");
+    }
+    const body = await c.req.parseBody();
+    const role = String(body.role ?? "");
+    if (role !== "admin" && role !== "member") {
+      flashError(c, "Invalid role.");
+      return redirect(c, `/admin/users/${id}`);
+    }
+    users.setRole(id, role);
+    log.log({
+      adminId: c.get("userId") as string,
+      action: role === "admin" ? "user.promote" : "user.demote",
+      targetType: "user",
+      targetId: id,
+    });
+    flashSuccess(
+      c,
+      role === "admin" ? `@${target.username} is now an admin.` : `@${target.username} is now a member.`
+    );
+    return redirect(c, `/admin/users/${id}`);
+  });
+
+  // GET /admin/log — audit trail
+  app.get("/log", (c) => view(c, "admin/log", { entries: log.recent(200) }));
+
+  return app;
+}

@@ -41,6 +41,15 @@ export function authController(db: Db) {
       });
     }
 
+    // Suspended accounts cannot sign in (checked after password verify, so the
+    // message never reveals whether a username exists).
+    if (!users.isActive(id)) {
+      return view(c, "studio/auth/login", {
+        errors: ["This account is suspended. Contact an administrator."],
+        old: { username },
+      });
+    }
+
     await createSession(c, db, id);
     flashSuccess(c, "Welcome back!");
     return redirect(c, "/studio");

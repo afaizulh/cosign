@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= it.title ?? "CoSign Admin" %></title>
+    <link rel="stylesheet" href="/style.css" />
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  </head>
+  <body class="bg-slate-100 text-slate-900 min-h-screen">
+    <%
+      const tab = it.active ?? "dashboard";
+      const link = function (id, href, icon, label) {
+        const on = tab === id;
+        return `<a href="${href}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium ${on ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/10 hover:text-white"}"><i class="bx ${icon} text-lg ${on ? "text-red-400" : ""}"></i> ${label}</a>`;
+      };
+    %>
+    <div class="md:flex md:min-h-screen">
+      <!-- Sidebar -->
+      <aside class="hidden md:flex w-60 shrink-0 flex-col bg-studio-navy text-white sticky top-0 h-screen">
+        <a href="/admin" class="flex items-center gap-2 px-5 pt-7 pb-6">
+          <span class="w-9 h-9 rounded-xl bg-red-500 text-white flex items-center justify-center text-lg font-extrabold"><i class="bx bx-shield-quarter"></i></span>
+          <span class="leading-tight">
+            <span class="block font-extrabold text-base tracking-tight">CoSign</span>
+            <span class="block text-[11px] uppercase tracking-widest text-red-300">Admin</span>
+          </span>
+        </a>
+        <nav class="flex-1 px-3 space-y-1 text-sm">
+          <%~ link("dashboard", "/admin", "bxs-dashboard", "Overview") %>
+          <%~ link("works", "/admin/works", "bx-collection", "Works") %>
+          <%~ link("users", "/admin/users", "bx-group", "Users") %>
+          <%~ link("log", "/admin/log", "bx-history", "Activity log") %>
+        </nav>
+        <div class="p-4 border-t border-white/10 space-y-2">
+          <a href="/" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
+            <i class="bx bx-link-external"></i> View public site
+          </a>
+          <a href="/studio" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
+            <i class="bx bxs-dashboard"></i> My studio
+          </a>
+          <% if (it.user) { %>
+            <p class="px-2 pt-2 text-[11px] text-slate-400 truncate">Signed in as <span class="font-semibold text-white">@<%= it.user.username %></span></p>
+          <% } %>
+        </div>
+      </aside>
+
+      <!-- Topbar (mobile) -->
+      <div class="md:hidden bg-studio-navy text-white sticky top-0 z-20">
+        <div class="flex items-center justify-between px-4 py-3">
+          <a href="/admin" class="flex items-center gap-2 font-extrabold">
+            <span class="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center"><i class="bx bx-shield-quarter"></i></span>
+            Admin
+          </a>
+          <a href="/" class="text-xs text-slate-300"><i class="bx bx-link-external"></i> Site</a>
+        </div>
+        <nav class="flex gap-1 px-3 pb-3 text-sm overflow-x-auto">
+          <a href="/admin" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "dashboard" ? "bg-white/10 font-medium" : "text-slate-300" %>"><i class="bx bxs-dashboard"></i> Overview</a>
+          <a href="/admin/works" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "works" ? "bg-white/10 font-medium" : "text-slate-300" %>"><i class="bx bx-collection"></i> Works</a>
+          <a href="/admin/users" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "users" ? "bg-white/10 font-medium" : "text-slate-300" %>"><i class="bx bx-group"></i> Users</a>
+          <a href="/admin/log" class="px-3 py-1.5 rounded-lg whitespace-nowrap <%= tab === "log" ? "bg-white/10 font-medium" : "text-slate-300" %>"><i class="bx bx-history"></i> Log</a>
+        </nav>
+      </div>
+
+      <!-- Content -->
+      <div class="flex-1 min-w-0">
+        <main class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <% if (it.flash) { %>
+            <div class="<%= it.flash.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-red-50 border-red-300 text-red-800' %> border px-4 py-3 rounded-xl mb-6 flex items-start gap-2">
+              <i class="bx <%= it.flash.type === 'success' ? 'bx-check-circle' : 'bx-error-circle' %> text-xl leading-none mt-0.5"></i>
+              <span><%= it.flash.message %></span>
+            </div>
+          <% } %>
+          <%~ it.body %>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
