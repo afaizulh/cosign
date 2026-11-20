@@ -37,18 +37,18 @@
     <div id="compose" class="relative w-full aspect-[3/4] bg-slate-100 border border-slate-200 rounded-xl overflow-hidden max-w-md mx-auto">
       <img data-layer="background" src="<%= it.karya.parts.background ? '/uploads/' + it.karya.parts.background.replace(/^uploads\//, '') : '' %>" alt=""
         class="absolute inset-0 w-full h-full object-cover <%= it.karya.parts.background ? '' : 'hidden' %>" />
-      <img data-layer="badan" src="<%= it.karya.parts.badan ? '/uploads/' + it.karya.parts.badan.replace(/^uploads\//, '') : '' %>" alt=""
-        class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain <%= it.karya.parts.badan ? '' : 'hidden' %>" />
-      <img data-layer="kepala" src="<%= it.karya.parts.kepala ? '/uploads/' + it.karya.parts.kepala.replace(/^uploads\//, '') : '' %>" alt=""
-        class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain <%= it.karya.parts.kepala ? '' : 'hidden' %>" />
-      <% if (!it.karya.parts.kepala && !it.karya.parts.badan && !it.karya.parts.background) { %>
+      <img data-layer="body" src="<%= it.karya.parts.body ? '/uploads/' + it.karya.parts.body.replace(/^uploads\//, '') : '' %>" alt=""
+        class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain <%= it.karya.parts.body ? '' : 'hidden' %>" />
+      <img data-layer="head" src="<%= it.karya.parts.head ? '/uploads/' + it.karya.parts.head.replace(/^uploads\//, '') : '' %>" alt=""
+        class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain <%= it.karya.parts.head ? '' : 'hidden' %>" />
+      <% if (!it.karya.parts.head && !it.karya.parts.body && !it.karya.parts.background) { %>
         <p class="absolute inset-0 flex items-center justify-center text-sm text-slate-400">No parts yet</p>
       <% } %>
     </div>
 
     <!-- Part pickers -->
     <div class="space-y-5">
-      <% const labels = { kepala: "Head", badan: "Body", background: "Background" }; %>
+      <% const labels = { head: "Head", body: "Body", background: "Background" }; %>
       <% it.kategoriList.forEach(function (kat) { %>
         <section class="bg-white border border-slate-200 rounded-xl p-4">
           <div class="flex items-center justify-between mb-2">

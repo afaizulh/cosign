@@ -7,7 +7,7 @@ tidak merusak struktur, path import, atau konvensi yang sudah ada.
 
 Platform portofolio anak **Creative Media (CM)** — share karya, explore karya
 teman, like, dan punya halaman profil publik. Konsep karya ala **blush.design**:
-setiap karya disusun dari **bagian-bagian gambar** (`kepala`, `badan`,
+setiap karya disusun dari **bagian-bagian gambar** (`head`, `body`,
 `background`) yang di-upload dan bisa di-custom (pilih part per kategori +
 toggle visibilitas).
 
@@ -96,7 +96,7 @@ test/                       # unit test
 
 - `karya`: judul, deskripsi, kategori (`KATEGORI_LIST` di
   `src/controllers/page.controller.ts`), dibuat tanpa media.
-- `karya_parts`: part gambar per kategori — **hanya** `kepala`, `badan`,
+- `karya_parts`: part gambar per kategori — **hanya** `head`, `body`,
   `background` (`PART_KATEGORI` di `src/controllers/karya.controller.ts`).
   JANGAN menambah kategori lain tanpa mengubah konstanta ini.
 - Upload part: multipart → validasi `saveImage()` (whitelist
@@ -174,6 +174,11 @@ dibersihkan (hapus karya/part = file ikut terhapus).
 - **Mount controller sama di dua prefix dengan path tumpang tindih** — route
   pertama menang, halaman salah. Pisahkan admin & publik controller.
 - **Mengubah `KATEGORI_LIST` / `PART_KATEGORI`** tanpa sinkron di form/view.
+  Nilainya **slug Inggris** (`design`, `illustration`, `photography`,
+  `motion`, `other`; part: `head`, `body`, `background`) — URL filter
+  memakai `?category=`. Alias Indonesia lama dinormalisasi lewat
+  `KATEGORI_ALIASES` / `PART_ALIASES`, dan `migrate()` ikut merapikan
+  baris lama di DB.
 - **Upload tanpa validasi tipe/ukuran** — wajib lewat `saveImage()`
   (gambar saja, ≤ 20MB).
 - **Menghapus owner check** — user lain bisa menghapus karya/part orang lain.

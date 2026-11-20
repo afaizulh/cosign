@@ -4,7 +4,7 @@ import type { Database } from "bun:sqlite";
 export type KaryaPart = {
   id: string;
   karya_id: string;
-  kategori: string; // 'kepala' | 'badan' | 'background'
+  kategori: string; // 'head' | 'body' | 'background'
   media_path: string;
   media_type: string | null;
   created_at: string;

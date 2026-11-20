@@ -1,7 +1,7 @@
-<% /* Layered composition card — used in explore & profile grids. Data: it.k = { judul, username, kategori, like_count, tipe, parts: { kepala, badan, background } } */ %>
+<% /* Layered composition card — used in explore & profile grids. Data: it.k = { judul, username, kategori, like_count, tipe, parts: { head, body, background } } */ %>
 <% const k = it.k;
    const parts = k.parts || {};
-   const empty = k.tipe !== "3d" && !parts.kepala && !parts.badan && !parts.background;
+   const empty = k.tipe !== "3d" && !parts.head && !parts.body && !parts.background;
    const initial = String(k.username || "?").charAt(0).toUpperCase(); %>
 <a href="/karya/<%= k.id %>" class="group block focus:outline-none focus-visible:ring-4 focus-visible:ring-studio-gold/40 rounded-2xl">
   <div class="relative aspect-[4/5] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm transition duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:border-studio-gold/60">
@@ -11,12 +11,12 @@
       <img src="/uploads/<%= parts.background %>" alt="" loading="lazy"
         class="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
-    <% if (parts.badan) { %>
-      <img src="/uploads/<%= parts.badan %>" alt="" loading="lazy"
+    <% if (parts.body) { %>
+      <img src="/uploads/<%= parts.body %>" alt="" loading="lazy"
         class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
-    <% if (parts.kepala) { %>
-      <img src="/uploads/<%= parts.kepala %>" alt="" loading="lazy"
+    <% if (parts.head) { %>
+      <img src="/uploads/<%= parts.head %>" alt="" loading="lazy"
         class="absolute top-[8%] left-1/2 -translate-x-1/2 w-2/5 object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
 

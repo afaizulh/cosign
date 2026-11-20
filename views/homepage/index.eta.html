@@ -7,14 +7,14 @@ const url = function (kategori, sort) {
   const p = new URLSearchParams();
   const kat = kategori === undefined ? it.aktif : kategori;
   const s = sort === undefined ? it.sort : sort;
-  if (kat) p.set("kategori", kat);
+  if (kat) p.set("category", kat);
   if (it.q) p.set("q", it.q);
   if (s && s !== "newest") p.set("sort", s);
   const out = p.toString();
   return out ? "/?" + out : "/";
 };
 const up = function (p) { return "/uploads/" + String(p || "").replace(/^uploads\//, ""); };
-const showcase = it.karya.filter(function (k) { return k.tipe !== "3d" && k.parts && (k.parts.badan || k.parts.kepala || k.parts.background); }).slice(0, 3);
+const showcase = it.karya.filter(function (k) { return k.tipe !== "3d" && k.parts && (k.parts.body || k.parts.head || k.parts.background); }).slice(0, 3);
 %>
 
 <!-- Hero -->
@@ -36,7 +36,7 @@ const showcase = it.karya.filter(function (k) { return k.tipe !== "3d" && k.part
       </p>
 
       <form method="get" action="/" class="mt-6 flex flex-col sm:flex-row gap-2 max-w-lg">
-        <% if (it.aktif) { %><input type="hidden" name="kategori" value="<%= it.aktif %>" /><% } %>
+        <% if (it.aktif) { %><input type="hidden" name="category" value="<%= it.aktif %>" /><% } %>
         <% if (it.sort && it.sort !== "newest") { %><input type="hidden" name="sort" value="<%= it.sort %>" /><% } %>
         <div class="relative flex-1">
           <i class="bx bx-search absolute left-3.5 top-1/2 -translate-y-1/2 text-lg text-slate-400"></i>
@@ -84,11 +84,11 @@ const showcase = it.karya.filter(function (k) { return k.tipe !== "3d" && k.part
             <% if (k.parts.background) { %>
               <img src="<%= up(k.parts.background) %>" alt="" class="absolute inset-0 w-full h-full object-cover" />
             <% } %>
-            <% if (k.parts.badan) { %>
-              <img src="<%= up(k.parts.badan) %>" alt="" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain" />
+            <% if (k.parts.body) { %>
+              <img src="<%= up(k.parts.body) %>" alt="" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain" />
             <% } %>
-            <% if (k.parts.kepala) { %>
-              <img src="<%= up(k.parts.kepala) %>" alt="" class="absolute top-[8%] left-1/2 -translate-x-1/2 w-2/5 object-contain" />
+            <% if (k.parts.head) { %>
+              <img src="<%= up(k.parts.head) %>" alt="" class="absolute top-[8%] left-1/2 -translate-x-1/2 w-2/5 object-contain" />
             <% } %>
           </a>
         <% }) %>

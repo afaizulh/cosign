@@ -14,7 +14,7 @@
 
 Anak Creative Media butuh tempat untuk memamerkan karya dan membangun identitas
 angkatan. CoSign menjawabnya dengan cara ala **blush.design**: setiap karya bisa
-disusun dari **bagian-bagian gambar** (kepala, badan, background) yang di-upload
+disusun dari **bagian-bagian gambar** (head, body, background) yang di-upload
 dan bisa digabung/di-custom menjadi satu komposisi — lalu di-explore dan
 di-like oleh teman.
 
@@ -127,7 +127,7 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 | GET | `/studio/publications` | `studio/publications` — semua karya + form buat | ✓ |
 | POST | `/studio/publications` | buat karya (judul, deskripsi, kategori, tipe) | ✓ |
 | GET | `/studio/karya/:id` | `studio/karya/show` — kelola parts (2D) | ✓ (owner) |
-| POST | `/studio/karya/:id/parts` | upload part gambar (kepala/badan/background) | ✓ (owner) |
+| POST | `/studio/karya/:id/parts` | upload part gambar (head/body/background) | ✓ (owner) |
 | POST | `/studio/karya/:id/parts/:pid/delete` | hapus part | ✓ (owner) |
 | GET | `/studio/karya/:id/3d` | `studio/karya/show3d` — kelola asset 3D | ✓ (owner) |
 | POST | `/studio/karya/:id/3d` | upload asset 3D (GLB/GLTF/OBJ/FBX/STL/USDZ) | ✓ (owner) |
@@ -138,7 +138,8 @@ Semua mutasi via form POST (PRG). Karya punya `tipe` **2d** (part gambar) atau
 **3d** (asset 3D). Upload gambar (part & avatar) divalidasi: hanya
 `image/jpeg|png|gif|webp`, maksimal **20MB**. Upload asset 3D divalidasi lewat
 ekstensi `glb|gltf|obj|fbx|stl|usdz`, maksimal **50MB**. Semua file disimpan sebagai
-`uploads/<uuid>.<ext>`. Kategori part: `kepala`, `badan`, `background`.
+`uploads/<uuid>.<ext>`. Kategori part: `head`, `body`, `background`.
+Kategori karya: `design`, `illustration`, `photography`, `motion`, `other`.
 Komentar maks 1000 karakter; hanya penulis komentar atau pemilik karya yang
 bisa menghapusnya.
 

@@ -66,7 +66,7 @@ export function migrate(db: Database) {
     CREATE TABLE IF NOT EXISTS karya_parts (
       id TEXT PRIMARY KEY,
       karya_id TEXT NOT NULL,
-      kategori TEXT NOT NULL,      -- 'kepala' | 'badan' | 'background'
+      kategori TEXT NOT NULL,      -- 'head' | 'body' | 'background'
       media_path TEXT NOT NULL,
       media_type TEXT,
       created_at TEXT DEFAULT (datetime('now'))
@@ -123,4 +123,21 @@ export function migrate(db: Database) {
       if (hasMediaType) db.exec("ALTER TABLE karya DROP COLUMN media_type;");
     })();
   }
+
+  // Rename Indonesian enum slugs to English (categories + part categories).
+  // Idempotent: old keys are gone after the first run, so re-running is a no-op.
+  const KATEGORI_RENAMES: Record<string, string> = {
+    desain: "design",
+    ilustrasi: "illustration",
+    fotografi: "photography",
+    motion: "motion",
+    lainnya: "other",
+  };
+  const PART_RENAMES: Record<string, string> = { kepala: "head", badan: "body" };
+  db.transaction(() => {
+    const setKarya = db.query("UPDATE karya SET kategori = ? WHERE kategori = ?");
+    for (const [from, to] of Object.entries(KATEGORI_RENAMES)) setKarya.run(to, from);
+    const setPart = db.query("UPDATE karya_parts SET kategori = ? WHERE kategori = ?");
+    for (const [from, to] of Object.entries(PART_RENAMES)) setPart.run(to, from);
+  })();
 }
