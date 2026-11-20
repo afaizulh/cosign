@@ -59,6 +59,25 @@ export function adminController(db: Db) {
     return { ok: true };
   }
 
+  /** Rows per page in the admin tables (kept small enough to scan). */
+  const PER_PAGE = 12;
+
+  /** Parse ?page= safely and clamp it to the available range. */
+  function pager(c: Context<AppEnv>, total: number) {
+    const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+    const raw = Number.parseInt(c.req.query("page") ?? "1", 10);
+    const page = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), pages) : 1;
+    return {
+      page,
+      pages,
+      total,
+      perPage: PER_PAGE,
+      offset: (page - 1) * PER_PAGE,
+      from: total === 0 ? 0 : (page - 1) * PER_PAGE + 1,
+      to: Math.min(page * PER_PAGE, total),
+    };
+  }
+
   // GET /admin — dashboard
   app.get("/", (c) => {
     const allUsers = users.listForAdmin();
@@ -83,14 +102,17 @@ export function adminController(db: Db) {
   app.get("/works", (c) => {
     const status = c.req.query("status") ?? "";
     const q = c.req.query("q")?.trim() ?? "";
-    const rows = karya.listForAdmin({
+    const filter = {
       status: status === "taken_down" || status === "published" ? status : undefined,
       q: q || undefined,
-    });
+    };
+    const meta = pager(c, karya.countForAdmin(filter));
+    const rows = karya.listForAdminPage(filter, PER_PAGE, meta.offset);
     return view(c, "admin/works/index", {
       karya: rows,
       aktif: status,
       q,
+      meta,
     });
   });
 
@@ -163,14 +185,17 @@ export function adminController(db: Db) {
   app.get("/users", (c) => {
     const status = c.req.query("status") ?? "";
     const q = c.req.query("q")?.trim() ?? "";
-    const rows = users.listForAdmin({
+    const filter = {
       status: status === "active" || status === "suspended" ? (status as UserStatus) : undefined,
       q: q || undefined,
-    });
+    };
+    const meta = pager(c, users.countForAdmin(filter));
+    const rows = users.listForAdminPage(filter, PER_PAGE, meta.offset);
     return view(c, "admin/users/index", {
       users: rows,
       aktif: status,
       q,
+      meta,
       actorRole: actorRole(c),
     });
   });
@@ -288,8 +313,25 @@ export function adminController(db: Db) {
     return redirect(c, `/admin/users/${id}`);
   });
 
-  // GET /admin/log — audit trail
-  app.get("/log", (c) => view(c, "admin/log", { entries: log.recent(200) }));
+  // GET /admin/log — audit trail (paginated, filter by admin & action)
+  app.get("/log", (c) => {
+    const adminFilter = c.req.query("admin") ?? "";
+    const action = c.req.query("action") ?? "";
+    const filter = {
+      admin: adminFilter || undefined,
+      action: action || undefined,
+    };
+    const meta = pager(c, log.count(filter));
+    const entries = log.list(filter, PER_PAGE, meta.offset);
+    return view(c, "admin/log", {
+      entries,
+      meta,
+      aktifAdmin: adminFilter,
+      aktifAction: action,
+      adminOptions: log.adminOptions(),
+      actionOptions: log.actionOptions(),
+    });
+  });
 
   return app;
 }

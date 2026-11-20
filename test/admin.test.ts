@@ -451,6 +451,252 @@ describe("Admin — suspend & reactivate", () => {
   });
 });
 
+describe("Admin — pagination, filter & search", () => {
+  /** superadmin app + N works owned by one author. */
+  async function seed(works: number, users: number) {
+    const sqlite = createTestDb();
+    const model = new UserModel(sqlite);
+    const app = createApp({ driver: "sqlite", sqlite, supabase: null });
+
+    const bossCookie = await registerUser(app, "boss");
+    model.setRole(model.idByUsername("boss")!, "superadmin");
+
+    const authorCookie = await registerUser(app, "author");
+    for (let i = 1; i <= works; i++) {
+      await app.request("/studio/publications", {
+        method: "POST",
+        headers: { cookie: authorCookie, ...formPostHeaders },
+        body: new URLSearchParams({
+          judul: `Work ${String(i).padStart(2, "0")}`,
+          deskripsi: "",
+          kategori: "design",
+        }).toString(),
+      });
+    }
+    // Straight to the DB: the auth rate limiter caps HTTP registrations at 10/window.
+    const insert = sqlite.query(
+      "INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)"
+    );
+    for (let i = 1; i <= users; i++) {
+      insert.run(`extra-${i}`, `extra${String(i).padStart(2, "0")}`, "x");
+    }
+    return { app, sqlite, model, bossCookie };
+  }
+
+  test("works: 12 per page + pager keeps filter and search", async () => {
+    const { app, bossCookie } = await seed(14, 0);
+
+    const p1 = await (await app.request("/admin/works", { headers: { cookie: bossCookie } })).text();
+    expect(p1).toContain("Showing");
+    expect(p1).toContain("1–12");
+    expect(p1).toContain("14</span>");
+
+    const p2 = await (
+      await app.request("/admin/works?page=2", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(p2).toContain("13–14");
+    // A filter survives page 2
+    const filtered = await (
+      await app.request("/admin/works?status=published&page=2", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(filtered).toContain("13–14");
+    expect(filtered).toContain("status=published");
+
+    // Out-of-range page clamps to the last page instead of showing nothing
+    const clamped = await (
+      await app.request("/admin/works?page=99", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(clamped).toContain("13–14");
+  });
+
+  test("works: search narrows the result set and pages", async () => {
+    const { app, bossCookie } = await seed(14, 0);
+
+    const search = await (
+      await app.request("/admin/works?q=Work%2003", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(search).toContain("1–1");
+    expect(search).toContain("Work 03");
+    expect(search).not.toContain("Work 04");
+
+    const none = await (
+      await app.request("/admin/works?q=zzzz", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(none).toContain("No works match this filter.");
+    expect(none).toContain("Clear filters");
+  });
+
+  test("works: filter by status", async () => {
+    const { app, sqlite, bossCookie } = await seed(3, 0);
+    sqlite.query("UPDATE karya SET status = 'taken_down' WHERE judul = ?").run("Work 02");
+
+    const hidden = await (
+      await app.request("/admin/works?status=taken_down", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(hidden).toContain("Work 02");
+    expect(hidden).not.toContain("Work 01");
+
+    const live = await (
+      await app.request("/admin/works?status=published", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(live).toContain("Work 01");
+    expect(live).not.toContain("Work 02");
+  });
+
+  test("users: 12 per page + search and status filter", async () => {
+    const { app, bossCookie } = await seed(0, 14);
+
+    const p1 = await (await app.request("/admin/users", { headers: { cookie: bossCookie } })).text();
+    expect(p1).toContain("1–12");
+
+    const p2 = await (
+      await app.request("/admin/users?page=2", { headers: { cookie: bossCookie } })
+    ).text();
+    // 14 extras + boss + author = 16 accounts → page 2 holds 13–16
+    expect(p2).toContain("13–16");
+
+    const search = await (
+      await app.request("/admin/users?q=extra13", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(search).toContain("@extra13");
+    expect(search).not.toContain("@extra12");
+
+    const none = await (
+      await app.request("/admin/users?status=suspended", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(none).toContain("No users match this filter.");
+  });
+});
+
+describe("Admin — activity log (pagination & filters)", () => {
+  /** Table rows only — the filter dropdowns intentionally list every option. */
+  const body = (html: string) => {
+    const start = html.indexOf("<tbody");
+    const end = html.indexOf("</tbody>");
+    return start === -1 || end === -1 ? "" : html.slice(start, end);
+  };
+  async function seedLog(rows: number) {
+    const sqlite = createTestDb();
+    const model = new UserModel(sqlite);
+    const app = createApp({ driver: "sqlite", sqlite, supabase: null });
+
+    const bossCookie = await registerUser(app, "boss");
+    const bossId = model.idByUsername("boss")!;
+    model.setRole(bossId, "superadmin");
+
+    const otherCookie = await registerUser(app, "other");
+    const otherId = model.idByUsername("other")!;
+    model.setRole(otherId, "admin");
+
+    const insert = sqlite.query(
+      "INSERT INTO moderation_log (id, admin_id, action, target_type, target_id, reason) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    const actions = ["karya.takedown", "karya.restore", "user.suspend"];
+    for (let i = 1; i <= rows; i++) {
+      insert.run(
+        `log-${i}`,
+        i % 2 === 0 ? bossId : otherId,
+        actions[i % actions.length],
+        "karya",
+        `target-${i}`,
+        `reason ${i}`
+      );
+    }
+    return { app, sqlite, bossCookie, bossId, otherId };
+  }
+
+  test("12 per page with a working pager", async () => {
+    const { app, bossCookie } = await seedLog(20);
+
+    const p1 = await (await app.request("/admin/log", { headers: { cookie: bossCookie } })).text();
+    expect(p1).toContain("Showing");
+    expect(p1).toContain("1–12");
+    expect(p1).toContain("20</span>");
+    expect(p1).toContain('href="/admin/log?page=2"');
+
+    const p2 = await (
+      await app.request("/admin/log?page=2", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(p2).toContain("13–20");
+
+    const clamped = await (
+      await app.request("/admin/log?page=99", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(clamped).toContain("13–20");
+  });
+
+  test("filter by action", async () => {
+    const { app, bossCookie } = await seedLog(20);
+
+    const filtered = await (
+      await app.request("/admin/log?action=karya.restore", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(body(filtered)).toContain("karya.restore");
+    expect(body(filtered)).not.toContain("user.suspend");
+    // dropdown still offers the other actions
+    expect(filtered).toContain('value="user.suspend"');
+    // the pager link keeps the filter
+    expect(filtered).toContain("action=karya.restore");
+  });
+
+  test("filter by admin", async () => {
+    const { app, bossCookie, bossId, otherId } = await seedLog(20);
+
+    const mine = await (
+      await app.request("/admin/log?admin=boss", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(body(mine)).toContain("@boss");
+    expect(body(mine)).not.toContain("@other");
+
+    const theirs = await (
+      await app.request("/admin/log?admin=other", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(body(theirs)).toContain("@other");
+    expect(body(theirs)).not.toContain("@boss");
+    // selected option reflects the username-based filter
+    expect(theirs).toContain('<option value="other" selected>');
+
+    // legacy UUID links still resolve
+    const byId = await (
+      await app.request(`/admin/log?admin=${otherId}`, { headers: { cookie: bossCookie } })
+    ).text();
+    expect(body(byId)).toContain("@other");
+    expect(body(byId)).not.toContain("@boss");
+  });
+
+  test("admin + action filters combine, and empty results show a clear state", async () => {
+    const { app, bossCookie, bossId } = await seedLog(20);
+
+    const combined = await (
+      await app.request("/admin/log?admin=boss&action=user.suspend", {
+        headers: { cookie: bossCookie },
+      })
+    ).text();
+    expect(body(combined)).toContain("user.suspend");
+    expect(body(combined)).toContain("@boss");
+    expect(body(combined)).not.toContain("@other");
+
+    const none = await (
+      await app.request("/admin/log?action=user.promote", { headers: { cookie: bossCookie } })
+    ).text();
+    expect(none).toContain("No activity matches these filters.");
+    expect(none).toContain("Clear");
+  });
+
+  test("dropdowns list only admins/actions present in the log", async () => {
+    const { app, bossCookie } = await seedLog(9);
+
+    const html = await (await app.request("/admin/log", { headers: { cookie: bossCookie } })).text();
+    expect(html).toContain("All admins");
+    expect(html).toContain("All actions");
+    expect(html).toContain("@boss");
+    expect(html).toContain("@other");
+    expect(html).toContain("karya.takedown");
+    // never logged → not offered
+    expect(html).not.toContain('value="user.promote"');
+  });
+});
+
 describe("Admin — roles & audit log", () => {
   async function fixture() {
     const sqlite = createTestDb();
