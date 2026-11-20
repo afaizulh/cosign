@@ -9,9 +9,19 @@ import { requireAuth } from "../middleware/auth.middleware";
 import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 import { partsByCategory, latestParts } from "../composition";
 import { saveImage, MAX_UPLOAD_BODY } from "../uploads";
-import { KATEGORI_LIST } from "./page.controller";
+import { KATEGORI_LIST, normalizeKategori } from "./page.controller";
 
-export const PART_KATEGORI = ["kepala", "badan", "background"];
+export const PART_KATEGORI = ["head", "body", "background"];
+
+/** Old Indonesian part slugs → English (backward compat for forms/bookmarks). */
+export const PART_ALIASES: Record<string, string> = { kepala: "head", badan: "body" };
+
+/** Normalise a part slug (accepts legacy kepala/badan). Returns "" when invalid. */
+function normalizePart(raw: unknown): string {
+  const value = String(raw ?? "").trim().toLowerCase();
+  const mapped = PART_ALIASES[value] ?? value;
+  return PART_KATEGORI.includes(mapped) ? mapped : "";
+}
 export const TIPE_LIST = ["2d", "3d"];
 const ASSET_EXTS = ["glb", "gltf", "obj", "fbx", "stl", "usdz"];
 const MAX_ASSET_SIZE = 50 * 1024 * 1024; // 50MB
@@ -111,10 +121,7 @@ export function karyaAdminController(db: Db) {
     const body = await c.req.parseBody();
     const judul = String(body.judul ?? "").trim();
     const deskripsi = String(body.deskripsi ?? "").trim();
-    let kategori = String(body.kategori ?? "lainnya").trim();
-    if (!KATEGORI_LIST.includes(kategori)) {
-      kategori = "lainnya";
-    }
+    const kategori = normalizeKategori(String(body.kategori ?? "")) ?? "other";
     let tipe = String(body.tipe ?? "2d").trim();
     if (!TIPE_LIST.includes(tipe)) {
       tipe = "2d";
@@ -247,10 +254,7 @@ export function karyaAdminController(db: Db) {
     const body = await c.req.parseBody();
     const judul = String(body.judul ?? "").trim();
     const deskripsi = String(body.deskripsi ?? "").trim();
-    let kategori = String(body.kategori ?? "lainnya").trim();
-    if (!KATEGORI_LIST.includes(kategori)) {
-      kategori = "lainnya";
-    }
+    const kategori = normalizeKategori(String(body.kategori ?? "")) ?? "other";
     if (!judul) {
       flashError(c, "Title is required.");
       return redirect(c, `/studio/karya/${id}`);
@@ -280,10 +284,10 @@ export function karyaAdminController(db: Db) {
       return redirect(c, "/studio/publications");
     }
     const body = await c.req.parseBody();
-    const kategori = String(body.kategori ?? "").trim();
+    const kategori = normalizePart(body.kategori);
     const file = body.media;
 
-    if (!PART_KATEGORI.includes(kategori)) {
+    if (!kategori) {
       flashError(c, "Invalid part category.");
       return redirect(c, `/studio/karya/${id}`);
     }

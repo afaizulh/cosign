@@ -4,8 +4,8 @@
   if (!compose) return;
 
   const layers = {
-    kepala: compose.querySelector('[data-layer="kepala"]'),
-    badan: compose.querySelector('[data-layer="badan"]'),
+    head: compose.querySelector('[data-layer="head"]'),
+    body: compose.querySelector('[data-layer="body"]'),
     background: compose.querySelector('[data-layer="background"]'),
   };
 
@@ -63,8 +63,8 @@
 
       const [bg, body, head] = await Promise.all([
         load(layers.background),
-        load(layers.badan),
-        load(layers.kepala),
+        load(layers.body),
+        load(layers.head),
       ]);
 
       // background: object-cover over the whole canvas
@@ -75,13 +75,13 @@
         ctx.drawImage(bg, (W - dw) / 2, (H - dh) / 2, dw, dh);
       }
       // body: 60% width, centered, bottom aligned
-      if (body && !layers.badan.classList.contains("hidden")) {
+      if (body && !layers.body.classList.contains("hidden")) {
         const dw = W * 0.6;
         const dh = dw * (body.height / body.width);
         ctx.drawImage(body, (W - dw) / 2, H - dh, dw, dh);
       }
       // head: 40% width, centered, top offset (matches top-4 on the preview)
-      if (head && !layers.kepala.classList.contains("hidden")) {
+      if (head && !layers.head.classList.contains("hidden")) {
         const dw = W * 0.4;
         const dh = dw * (head.height / head.width);
         ctx.drawImage(head, (W - dw) / 2, W * (16 / 448), dw, dh);

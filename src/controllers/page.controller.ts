@@ -6,7 +6,24 @@ import { view, redirect, flashError, type AppEnv } from "../view";
 import { withComposition } from "../composition";
 
 /** Fixed list of work categories (used for filters & forms). */
-export const KATEGORI_LIST = ["desain", "ilustrasi", "fotografi", "motion", "lainnya"];
+export const KATEGORI_LIST = ["design", "illustration", "photography", "motion", "other"];
+
+/** Old Indonesian slugs → English, so bookmarks and in-flight forms keep working. */
+export const KATEGORI_ALIASES: Record<string, string> = {
+  desain: "design",
+  ilustrasi: "illustration",
+  fotografi: "photography",
+  motion: "motion",
+  lainnya: "other",
+};
+
+/** Normalise a category slug (accepts legacy Indonesian values). */
+export function normalizeKategori(raw: string | undefined | null): string | undefined {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (!value) return undefined;
+  const mapped = KATEGORI_ALIASES[value] ?? value;
+  return KATEGORI_LIST.includes(mapped) ? mapped : undefined;
+}
 
 /** Controller: public pages — homepage explore & profile. */
 export function pageController(db: Db) {
@@ -15,7 +32,7 @@ export function pageController(db: Db) {
   app.get("/", (c) => {
     if (!db.sqlite) return c.text("supabase mode not implemented", 501);
     const karya = new KaryaModel(db.sqlite);
-    const kategori = c.req.query("kategori") || undefined;
+    const kategori = normalizeKategori(c.req.query("category") ?? c.req.query("kategori"));
     const q = c.req.query("q")?.trim() || undefined;
     const sort = c.req.query("sort") || "newest";
     const items = withComposition(karya.list(kategori, q, sort), karya);

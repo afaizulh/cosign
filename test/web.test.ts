@@ -238,7 +238,7 @@ describe("Web — karya (auth)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Studio Dash", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Studio Dash", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
@@ -277,7 +277,7 @@ describe("Web — karya (auth)", () => {
       body: new URLSearchParams({
         judul: "Poster Event",
         deskripsi: "My poster",
-        kategori: "desain",
+        kategori: "design",
       }).toString(),
     });
     expect(create.status).toBe(302);
@@ -291,10 +291,10 @@ describe("Web — karya (auth)", () => {
     expect(manageHtml).toContain("Head");
     expect(manageHtml).toContain("Body");
     expect(manageHtml).toContain("Background");
-    expect(manageHtml).toContain('name="kategori" value="kepala"');
+    expect(manageHtml).toContain('name="kategori" value="head"');
 
     // Upload parts (one per category)
-    for (const kat of ["kepala", "badan", "background"]) {
+    for (const kat of ["head", "body", "background"]) {
       const up = await uploadPart(app, cookie, karyaId, kat);
       expect(up.status).toBe(302);
       expect(up.headers.get("location")).toBe(manageUrl);
@@ -311,11 +311,11 @@ describe("Web — karya (auth)", () => {
     expect(detail.status).toBe(200);
     const detailHtml = await detail.text();
     expect(detailHtml).toContain("Poster Event");
-    expect(detailHtml).toContain('data-layer="kepala"');
-    expect(detailHtml).toContain('data-layer="badan"');
+    expect(detailHtml).toContain('data-layer="head"');
+    expect(detailHtml).toContain('data-layer="body"');
     expect(detailHtml).toContain('data-layer="background"');
     expect(detailHtml).toContain("/customizer.js");
-    expect(detailHtml).toContain('data-kategori="kepala"');
+    expect(detailHtml).toContain('data-kategori="head"');
     expect(detailHtml).toContain('id="export-png"');
     expect(detailHtml).not.toContain("/uploads/uploads/");
 
@@ -358,12 +358,12 @@ describe("Web — karya (auth)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
     const bad = new File(["hello"], "catatan.txt", { type: "text/plain" });
-    const res = await uploadPart(app, cookie, karyaId, "kepala", bad);
+    const res = await uploadPart(app, cookie, karyaId, "head", bad);
     expect(res.status).toBe(302);
 
     const sidCookie = cookie.split(";")[0];
@@ -380,13 +380,13 @@ describe("Web — karya (auth)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
     const big = new File([new Uint8Array(22 * 1024 * 1024)], "big.png", { type: "image/png" });
     const form = new FormData();
-    form.append("kategori", "kepala");
+    form.append("kategori", "head");
     form.append("media", big);
 
     const res = await app.request(`/studio/karya/${karyaId}/parts`, {
@@ -411,12 +411,12 @@ describe("Web — karya (auth)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
     const form = new FormData();
-    form.append("kategori", "kepala");
+    form.append("kategori", "head");
     const res = await app.request(`/studio/karya/${karyaId}/parts`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
@@ -434,10 +434,10 @@ describe("Web — karya (auth)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie: cookie1, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
-    await uploadPart(app, cookie1, karyaId, "kepala");
+    await uploadPart(app, cookie1, karyaId, "head");
 
     // owner2 tries to delete owner1's part → redirected, part still exists
     const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie: cookie1 } })).text();
@@ -451,7 +451,7 @@ describe("Web — karya (auth)", () => {
     expect(res.headers.get("location")).toBe("/studio/publications");
 
     const check = await app.request(`/studio/karya/${karyaId}`, { headers: { cookie: cookie1 } });
-    expect(await check.text()).toContain('name="kategori" value="kepala"');
+    expect(await check.text()).toContain('name="kategori" value="head"');
 
     // Cleanup: owner1 deletes the karya (removes the part file too)
     await app.request(`/studio/karya/${karyaId}/delete`, {
@@ -467,7 +467,7 @@ describe("Web — karya (auth)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
@@ -494,7 +494,7 @@ describe("Web — karya 3D", () => {
       body: new URLSearchParams({
         judul: "Model 3D",
         deskripsi: "",
-        kategori: "desain",
+        kategori: "design",
         tipe: "3d",
       }).toString(),
     });
@@ -526,7 +526,7 @@ describe("Web — karya 3D", () => {
     const res = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Flat", deskripsi: "", kategori: "desain", tipe: "2d" }).toString(),
+      body: new URLSearchParams({ judul: "Flat", deskripsi: "", kategori: "design", tipe: "2d" }).toString(),
     });
     const loc = res.headers.get("location")!;
     const karyaId = loc.split("/").pop()!;
@@ -631,7 +631,7 @@ describe("Web — public pages", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Publik", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Publik", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
@@ -647,7 +647,7 @@ describe("Web — public pages", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Like State", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Like State", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
@@ -688,10 +688,10 @@ describe("Web — public pages", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Profil Karya", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Profil Karya", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
-    await uploadPart(app, cookie, karyaId, "kepala");
+    await uploadPart(app, cookie, karyaId, "head");
 
     const profil = await app.request("/profil/admin");
     expect(profil.status).toBe(200);
@@ -710,6 +710,77 @@ describe("Web — public pages", () => {
     });
   });
 
+  test("profile card shows author + real like count (byUser join)", async () => {
+    const app = createTestApp();
+    const author = await registerUser(app, "author1");
+    const fan = await registerUser(app, "fan1");
+
+    const create = await app.request("/studio/publications", {
+      method: "POST",
+      headers: { cookie: author, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Profil Card", deskripsi: "", kategori: "design" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    // A second user likes it, so the count must be > 0 on the profile page
+    const like = await app.request(`/karya/${karyaId}/like`, {
+      method: "POST",
+      headers: { cookie: fan, ...formHeaders },
+    });
+    expect(like.status).toBe(302);
+
+    const html = await (await app.request("/profil/author1")).text();
+    expect(html).toContain("by author1");
+    expect(html).toContain("1 like");
+    expect(html).not.toContain("by undefined");
+
+    await app.request(`/studio/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie: author, ...formHeaders },
+    });
+  });
+
+  test("legacy Indonesian slugs still work (redirect-free normalisation)", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const create = await app.request("/studio/publications", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Legacy Slug", deskripsi: "", kategori: "fotografi" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    // stored value is the English slug…
+    const list = await (await app.request("/studio/publications", { headers: { cookie } })).text();
+    expect(list).toContain("photography");
+    expect(list).not.toContain("fotografi");
+
+    // …but the old URLs and query params keep working
+    for (const url of ["/?kategori=fotografi", "/?category=photography", "/?kategori=photography"]) {
+      const html = await (await app.request(url)).text();
+      expect(html).toContain("Legacy Slug");
+    }
+
+    // old part slug on upload is normalised to "head"
+    const form = new FormData();
+    form.append("kategori", "kepala");
+    form.append("media", PNG);
+    const up = await app.request(`/studio/karya/${karyaId}/parts`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+      body: form,
+    });
+    expect(up.status).toBe(302);
+    const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } })).text();
+    expect(manage).toContain('data-kategori="head"');
+    expect(manage).not.toContain("kepala");
+
+    await app.request(`/studio/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+  });
+
   test("homepage category filter", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
@@ -720,19 +791,19 @@ describe("Web — public pages", () => {
         headers: { cookie, ...formPostHeaders },
         body: new URLSearchParams({ judul, deskripsi: "", kategori }).toString(),
       });
-    await mk("Desain Satu", "desain");
+    await mk("Desain Satu", "design");
     await mk("Motion Dua", "motion");
 
     const all = await (await app.request("/")).text();
     expect(all).toContain("Desain Satu");
     expect(all).toContain("Motion Dua");
 
-    const filtered = await (await app.request("/?kategori=desain")).text();
+    const filtered = await (await app.request("/?category=design")).text();
     expect(filtered).toContain("Desain Satu");
     expect(filtered).not.toContain("Motion Dua");
   });
 
-  test("POST /studio/karya with invalid kategori falls back to 'lainnya'", async () => {
+  test("POST /studio/publications with invalid kategori falls back to 'other'", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
@@ -747,7 +818,7 @@ describe("Web — public pages", () => {
 
     const list = await (await app.request("/studio/publications", { headers: { cookie } })).text();
     expect(list).toContain("Sneaky");
-    expect(list).toContain("lainnya");
+    expect(list).toContain("other");
     expect(list).not.toContain("hacker");
   });
 });
@@ -760,7 +831,7 @@ describe("Web — edit karya", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Old Title", deskripsi: "old", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Old Title", deskripsi: "old", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
@@ -788,14 +859,14 @@ describe("Web — edit karya", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Keep Me", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Keep Me", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
     const edit = await app.request(`/studio/karya/${karyaId}/edit`, {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "  ", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "  ", deskripsi: "", kategori: "design" }).toString(),
     });
     expect(edit.status).toBe(302);
 
@@ -811,14 +882,14 @@ describe("Web — edit karya", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie: cookie1, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Mine", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Mine", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
     const edit = await app.request(`/studio/karya/${karyaId}/edit`, {
       method: "POST",
       headers: { cookie: cookie2, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Hacked", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Hacked", deskripsi: "", kategori: "design" }).toString(),
     });
     expect(edit.status).toBe(302);
     expect(edit.headers.get("location")).toBe("/studio/publications");
@@ -838,7 +909,7 @@ describe("Web — search & sort", () => {
       app.request("/studio/publications", {
         method: "POST",
         headers: { cookie, ...formPostHeaders },
-        body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+        body: new URLSearchParams({ judul, deskripsi: "", kategori: "design" }).toString(),
       });
     const alpha = await mk("Alpha Work");
     const beta = await mk("Beta Work");
@@ -867,10 +938,10 @@ describe("Web — file cleanup", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
-    const up = await uploadPart(app, cookie, karyaId, "kepala");
+    const up = await uploadPart(app, cookie, karyaId, "head");
     void up;
 
     const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } })).text();
@@ -896,10 +967,10 @@ describe("Web — regression (bug #16 coverage)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul, deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
-    await uploadPart(app, cookie, karyaId, "kepala");
+    await uploadPart(app, cookie, karyaId, "head");
     const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } })).text();
     const partId = manage.match(/\/parts\/([0-9a-f-]+)\/delete/)?.[1]!;
     const file = manage.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1]!;
@@ -962,13 +1033,13 @@ describe("Web — regression (bug #16 coverage)", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul: "Ext", deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul: "Ext", deskripsi: "", kategori: "design" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
     // Declared image/png, named evil.html → must NOT be stored as .html.
     const evil = new File(["<script>alert(1)</script>"], "evil.html", { type: "image/png" });
-    await uploadPart(app, cookie, karyaId, "kepala", evil);
+    await uploadPart(app, cookie, karyaId, "head", evil);
 
     const created = readdirSync("uploads").filter((f) => !before.has(f));
     expect(created.length).toBe(1);
@@ -1148,7 +1219,7 @@ describe("Web — komentar karya", () => {
     const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
-      body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
+      body: new URLSearchParams({ judul, deskripsi: "", kategori: "design" }).toString(),
     });
     return create.headers.get("location")!.split("/").pop()!;
   }

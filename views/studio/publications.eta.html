@@ -93,13 +93,13 @@
             <% if (k.parts.background) { %>
               <img src="<%= up(k.parts.background) %>" alt="" class="absolute inset-0 w-full h-full object-cover" />
             <% } %>
-            <% if (k.parts.badan) { %>
-              <img src="<%= up(k.parts.badan) %>" alt="" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain" />
+            <% if (k.parts.body) { %>
+              <img src="<%= up(k.parts.body) %>" alt="" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain" />
             <% } %>
-            <% if (k.parts.kepala) { %>
-              <img src="<%= up(k.parts.kepala) %>" alt="" class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain" />
+            <% if (k.parts.head) { %>
+              <img src="<%= up(k.parts.head) %>" alt="" class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain" />
             <% } %>
-            <% if (!k.parts.kepala && !k.parts.badan && !k.parts.background) { %>
+            <% if (!k.parts.head && !k.parts.body && !k.parts.background) { %>
               <span class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400">
                 <i class="bx bx-image text-4xl"></i>
                 <span class="text-xs">No parts yet</span>
