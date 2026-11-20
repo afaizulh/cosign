@@ -1,7 +1,10 @@
 import { randomUUID } from "crypto";
 import type { Database } from "bun:sqlite";
 
-export type UserRole = "member" | "admin";
+export type UserRole = "member" | "admin" | "superadmin";
+
+/** Roles that may open the moderation panel. */
+const PANEL_ROLES: UserRole[] = ["admin", "superadmin"];
 export type UserStatus = "active" | "suspended";
 
 export type PublicUser = {
@@ -115,10 +118,20 @@ export class UserModel {
       .get(id) as { role: UserRole; status: UserStatus } | null;
   }
 
-  /** True when the user exists and has role = 'admin'. */
+  /** True when the user may open /admin (admin or superadmin). */
   isAdmin(id: string): boolean {
     const row = this.findAccess(id);
-    return row?.role === "admin";
+    return row !== null && PANEL_ROLES.includes(row.role);
+  }
+
+  /** True only for the highest role — the one allowed to touch other admins. */
+  isSuperAdmin(id: string): boolean {
+    return this.findAccess(id)?.role === "superadmin";
+  }
+
+  /** Role of a user (null when the user does not exist). */
+  roleOf(id: string): UserRole | null {
+    return this.findAccess(id)?.role ?? null;
   }
 
   /** True when the user is active (not suspended). */

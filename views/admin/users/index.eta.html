@@ -68,7 +68,9 @@
             </td>
             <td class="px-4 py-3 hidden sm:table-cell text-slate-500"><%= u.karya_count %></td>
             <td class="px-4 py-3">
-              <% if (u.role === "admin") { %>
+              <% if (u.role === "superadmin") { %>
+                <span class="text-[11px] font-bold uppercase bg-amber-400 text-studio-navy px-2 py-0.5 rounded-full">super</span>
+              <% } else if (u.role === "admin") { %>
                 <span class="text-[11px] font-bold uppercase bg-studio-navy text-white px-2 py-0.5 rounded-full">admin</span>
               <% } else { %>
                 <span class="text-[11px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">member</span>

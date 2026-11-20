@@ -133,6 +133,126 @@ describe("Admin — login round-trip", () => {
   });
 });
 
+describe("Superadmin — the highest role", () => {
+  /** boss = superadmin, mid = admin, plain = member. */
+  async function fixture() {
+    const sqlite = createTestDb();
+    const users = new UserModel(sqlite);
+    const app = createApp({ driver: "sqlite", sqlite, supabase: null });
+
+    const superCookie = await registerUser(app, "boss");
+    const superId = users.idByUsername("boss")!;
+    users.setRole(superId, "superadmin");
+
+    const adminCookie = await registerUser(app, "mid");
+    const adminId = users.idByUsername("mid")!;
+    users.setRole(adminId, "admin");
+
+    const memberCookie = await registerUser(app, "plain");
+    const memberId = users.idByUsername("plain")!;
+
+    return { app, users, superCookie, superId, adminCookie, adminId, memberCookie, memberId };
+  }
+
+  test("superadmin can open /admin like any admin", async () => {
+    const { app, superCookie } = await fixture();
+    expect((await app.request("/admin", { headers: { cookie: superCookie } })).status).toBe(200);
+  });
+
+  test("an admin cannot demote or suspend another admin", async () => {
+    const { app, users, adminCookie, superId } = await fixture();
+    const otherAdmin = await registerUser(app, "mid2");
+    void otherAdmin;
+    const otherId = users.idByUsername("mid2")!;
+    users.setRole(otherId, "admin");
+
+    // demote attempt
+    await app.request(`/admin/users/${otherId}/role`, {
+      method: "POST",
+      headers: { cookie: adminCookie, ...formPostHeaders },
+      body: new URLSearchParams({ role: "member" }).toString(),
+    });
+    expect(users.roleOf(otherId)).toBe("admin");
+
+    // suspend attempt
+    await app.request(`/admin/users/${otherId}/suspend`, {
+      method: "POST",
+      headers: { cookie: adminCookie, ...formPostHeaders },
+      body: new URLSearchParams({ reason: "power trip" }).toString(),
+    });
+    expect(users.findAccess(otherId)!.status).toBe("active");
+
+    // and certainly not the superadmin
+    await app.request(`/admin/users/${superId}/suspend`, {
+      method: "POST",
+      headers: { cookie: adminCookie, ...formPostHeaders },
+      body: new URLSearchParams({ reason: "coup" }).toString(),
+    });
+    expect(users.findAccess(superId)!.status).toBe("active");
+  });
+
+  test("superadmin can promote and demote an admin", async () => {
+    const { app, users, superCookie, memberId } = await fixture();
+
+    await app.request(`/admin/users/${memberId}/role`, {
+      method: "POST",
+      headers: { cookie: superCookie, ...formPostHeaders },
+      body: new URLSearchParams({ role: "admin" }).toString(),
+    });
+    expect(users.roleOf(memberId)).toBe("admin");
+
+    await app.request(`/admin/users/${memberId}/role`, {
+      method: "POST",
+      headers: { cookie: superCookie, ...formPostHeaders },
+      body: new URLSearchParams({ role: "member" }).toString(),
+    });
+    expect(users.roleOf(memberId)).toBe("member");
+  });
+
+  test("nobody can touch a superadmin account from the panel", async () => {
+    const { app, users, superCookie, superId } = await fixture();
+
+    const suspend = await app.request(`/admin/users/${superId}/suspend`, {
+      method: "POST",
+      headers: { cookie: superCookie, ...formPostHeaders },
+      body: new URLSearchParams({ reason: "self harm" }).toString(),
+    });
+    expect(suspend.status).toBe(302);
+    expect(users.findAccess(superId)!.status).toBe("active");
+    expect(users.roleOf(superId)).toBe("superadmin");
+  });
+
+  test("superadmin cannot demote themselves", async () => {
+    const { app, users, superCookie, superId } = await fixture();
+    await app.request(`/admin/users/${superId}/role`, {
+      method: "POST",
+      headers: { cookie: superCookie, ...formPostHeaders },
+      body: new URLSearchParams({ role: "member" }).toString(),
+    });
+    expect(users.roleOf(superId)).toBe("superadmin");
+  });
+
+  test("UI hides the role form from plain admins", async () => {
+    const { app, adminCookie, memberId } = await fixture();
+
+    const asAdmin = await (
+      await app.request(`/admin/users/${memberId}`, { headers: { cookie: adminCookie } })
+    ).text();
+    expect(asAdmin).toContain("Only a superadmin can change roles.");
+    expect(asAdmin).not.toContain('action="/admin/users/' + memberId + '/role"');
+  });
+
+  test("UI shows the role form to a superadmin", async () => {
+    const { app, superCookie, memberId } = await fixture();
+
+    const asSuper = await (
+      await app.request(`/admin/users/${memberId}`, { headers: { cookie: superCookie } })
+    ).text();
+    expect(asSuper).toContain('action="/admin/users/' + memberId + '/role"');
+    expect(asSuper).toContain("Update role");
+  });
+});
+
 describe("Admin — takedown & restore", () => {
   /** Shared fixture: an admin, an author, one published work. */
   async function fixture() {
@@ -335,7 +455,8 @@ describe("Admin — roles & audit log", () => {
     const app = createApp({ driver: "sqlite", sqlite, supabase: null });
 
     const adminCookie = await registerUser(app, "boss");
-    users.setRole(users.idByUsername("boss")!, "admin");
+    // Role changes are superadmin-only, so the actor here is a superadmin.
+    users.setRole(users.idByUsername("boss")!, "superadmin");
     const plainCookie = await registerUser(app, "plain");
     const plainId = users.idByUsername("plain")!;
 

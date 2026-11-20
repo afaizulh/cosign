@@ -28,13 +28,35 @@ export function adminController(db: Db) {
 
   app.use("*", requireAdmin(db));
 
-  /** Guard: an admin must never lock themselves out of their own account. */
-  function selfGuard(c: Context<AppEnv>, targetId: string) {
-    if (targetId === c.get("userId")) {
-      flashError(c, "You cannot moderate your own account.");
-      return false;
+  /** Role of the admin performing the request. */
+  function actorRole(c: Context<AppEnv>): "admin" | "superadmin" {
+    return users.isSuperAdmin(c.get("userId") as string) ? "superadmin" : "admin";
+  }
+
+  /**
+   * Who may moderate whom:
+   *   - nobody touches their own account
+   *   - a superadmin can act on members and admins
+   *   - an admin can act on members only
+   *   - a superadmin account can never be touched from the panel (CLI only)
+   */
+  function canActOn(
+    c: Context<AppEnv>,
+    target: { id: string; role: "member" | "admin" | "superadmin" }
+  ): { ok: true } | { ok: false; message: string } {
+    if (target.id === c.get("userId")) {
+      return { ok: false, message: "You cannot moderate your own account." };
     }
-    return true;
+    if (target.role === "superadmin") {
+      return {
+        ok: false,
+        message: "Superadmin accounts can only be changed from the CLI (bun run admin:revoke).",
+      };
+    }
+    if (target.role === "admin" && actorRole(c) !== "superadmin") {
+      return { ok: false, message: "Only a superadmin can moderate another admin." };
+    }
+    return { ok: true };
   }
 
   // GET /admin — dashboard
@@ -51,6 +73,7 @@ export function adminController(db: Db) {
     };
     return view(c, "admin/dashboard", {
       counts,
+      actorRole: actorRole(c),
       recentLog: log.recent(8),
       recentTakedowns: allKarya.filter((k) => k.status === "taken_down").slice(0, 5),
     });
@@ -144,7 +167,12 @@ export function adminController(db: Db) {
       status: status === "active" || status === "suspended" ? (status as UserStatus) : undefined,
       q: q || undefined,
     });
-    return view(c, "admin/users/index", { users: rows, aktif: status, q });
+    return view(c, "admin/users/index", {
+      users: rows,
+      aktif: status,
+      q,
+      actorRole: actorRole(c),
+    });
   });
 
   // GET /admin/users/:id — account detail + moderation panel
@@ -156,6 +184,7 @@ export function adminController(db: Db) {
     }
     return view(c, "admin/users/show", {
       target,
+      actorRole: actorRole(c),
       isSelf: target.id === c.get("userId"),
       works: karya.listForAdmin().filter((k) => k.user_id === target.id),
       history: log.forTarget("user", target.id),
@@ -165,11 +194,15 @@ export function adminController(db: Db) {
   // POST /admin/users/:id/suspend — deactivate + kill all sessions
   app.post("/users/:id/suspend", async (c) => {
     const id = c.req.param("id")!;
-    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
     const target = users.findForAdmin(id);
     if (!target) {
       flashError(c, "User not found.");
       return redirect(c, "/admin/users");
+    }
+    const allowed = canActOn(c, target);
+    if (!allowed.ok) {
+      flashError(c, allowed.message);
+      return redirect(c, `/admin/users/${id}`);
     }
     const body = await c.req.parseBody();
     const reason = String(body.reason ?? "").trim();
@@ -194,11 +227,15 @@ export function adminController(db: Db) {
   // POST /admin/users/:id/reactivate
   app.post("/users/:id/reactivate", (c) => {
     const id = c.req.param("id")!;
-    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
     const target = users.findForAdmin(id);
     if (!target) {
       flashError(c, "User not found.");
       return redirect(c, "/admin/users");
+    }
+    const allowed = canActOn(c, target);
+    if (!allowed.ok) {
+      flashError(c, allowed.message);
+      return redirect(c, `/admin/users/${id}`);
     }
     users.reactivate(id);
     log.log({
@@ -211,14 +248,25 @@ export function adminController(db: Db) {
     return redirect(c, `/admin/users/${id}`);
   });
 
-  // POST /admin/users/:id/role — promote / demote
+  // POST /admin/users/:id/role — superadmin only
   app.post("/users/:id/role", async (c) => {
     const id = c.req.param("id")!;
-    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
     const target = users.findForAdmin(id);
     if (!target) {
       flashError(c, "User not found.");
       return redirect(c, "/admin/users");
+    }
+    if (id === c.get("userId")) {
+      flashError(c, "You cannot change your own role.");
+      return redirect(c, `/admin/users/${id}`);
+    }
+    if (actorRole(c) !== "superadmin") {
+      flashError(c, "Only a superadmin can change roles.");
+      return redirect(c, `/admin/users/${id}`);
+    }
+    if (target.role === "superadmin") {
+      flashError(c, "Superadmin accounts can only be changed from the CLI (bun run admin:revoke).");
+      return redirect(c, `/admin/users/${id}`);
     }
     const body = await c.req.parseBody();
     const role = String(body.role ?? "");
