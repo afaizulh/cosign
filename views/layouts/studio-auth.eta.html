@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= it.title ?? "CoSign Studio" %></title>
+    <link rel="stylesheet" href="/style.css" />
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  </head>
+  <body class="bg-studio-navy min-h-screen flex flex-col text-slate-900">
+    <div class="py-8 text-center">
+      <a href="/" class="inline-flex items-center gap-2">
+        <span class="w-10 h-10 rounded-xl bg-studio-gold text-studio-navy flex items-center justify-center text-2xl font-extrabold">C</span>
+        <span class="text-left leading-tight">
+          <span class="block font-extrabold text-xl text-white tracking-tight">CoSign</span>
+          <span class="block text-[11px] uppercase tracking-widest text-slate-300">Studio</span>
+        </span>
+      </a>
+    </div>
+    <main class="flex-1 w-full max-w-md mx-auto px-4 pb-10">
+      <% if (it.flash) { %>
+        <div class="<%= it.flash.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-red-50 border-red-300 text-red-800' %> border px-4 py-3 rounded-xl mb-5">
+          <%= it.flash.message %>
+        </div>
+      <% } %>
+      <%~ it.body %>
+      <p class="text-center text-xs text-slate-400 mt-6">
+        <a href="/" class="hover:text-slate-200"><i class="bx bx-arrow-back"></i> Back to explore</a>
+      </p>
+    </main>
+    <footer class="text-center text-xs text-slate-500 pb-6">CoSign Studio · Venture Studio CCIT-FTUI</footer>
+  </body>
+</html>

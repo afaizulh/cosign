@@ -1,0 +1,89 @@
+<% layout("/layouts/studio") %>
+<% it.title = "Settings — CoSign Studio"; it.active = "settings"; %>
+<% const avatar = it.profil && it.profil.avatar_path ? "/uploads/" + it.profil.avatar_path.replace(/^uploads\//, "") : null; %>
+<% const publicPath = "/profil/" + it.profil.username; %>
+
+<div class="max-w-2xl mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Settings</h1>
+    <p class="text-sm text-slate-500 mt-0.5">Manage your profile, your public page and your account.</p>
+  </div>
+
+  <!-- Avatar -->
+  <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-5">
+    <h2 class="font-bold text-studio-navy mb-4 flex items-center gap-1.5"><i class="bx bx-image text-xl text-studio-gold-deep"></i> Avatar</h2>
+    <div class="flex flex-wrap items-center gap-5">
+      <% if (avatar) { %>
+        <img src="<%= avatar %>" alt="Avatar" class="w-20 h-20 rounded-full object-cover border-2 border-studio-gold" />
+      <% } else { %>
+        <div class="w-20 h-20 rounded-full bg-studio-navy text-studio-gold border-2 border-studio-gold flex items-center justify-center text-2xl font-extrabold">
+          <%= it.profil.username.charAt(0).toUpperCase() %>
+        </div>
+      <% } %>
+      <div class="space-y-2">
+        <form method="post" action="/studio/settings/avatar" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+          <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" required
+            class="border border-slate-300 rounded-xl px-3 py-1.5 text-sm file:mr-2 file:border-0 file:bg-studio-navy file:text-white file:text-xs file:font-semibold file:px-3 file:py-1.5 file:rounded-lg" />
+          <button type="submit" class="bg-studio-gold text-studio-navy px-4 py-1.5 rounded-xl text-sm font-extrabold hover:bg-studio-gold-deep hover:text-white">Upload</button>
+        </form>
+        <% if (avatar) { %>
+          <form method="post" action="/studio/settings/avatar/delete" onsubmit="return confirm('Remove your avatar?')">
+            <button type="submit" class="text-rose-600 hover:underline text-sm">Remove avatar</button>
+          </form>
+        <% } %>
+        <p class="text-xs text-slate-400">JPG, PNG, GIF or WEBP · max 20MB</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Profile details -->
+  <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-5">
+    <h2 class="font-bold text-studio-navy mb-4 flex items-center gap-1.5"><i class="bx bx-edit text-xl text-studio-gold-deep"></i> Profile details</h2>
+    <form method="post" action="/studio/settings" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1" for="username">Username</label>
+        <input id="username" value="<%= it.profil.username %>" disabled
+          class="w-full border border-slate-200 bg-slate-50 text-slate-500 rounded-xl px-3 py-2" />
+        <p class="text-xs text-slate-400 mt-1">Username cannot be changed.</p>
+      </div>
+      <div>
+        <label for="full_name" class="block text-sm font-medium mb-1">Full name</label>
+        <input id="full_name" name="full_name" maxlength="80" value="<%= it.profil.full_name ?? '' %>"
+          class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
+      </div>
+      <div>
+        <label for="bio" class="block text-sm font-medium mb-1">Bio</label>
+        <textarea id="bio" name="bio" rows="4" maxlength="500"
+          placeholder="Tell people about yourself and your work"
+          class="w-full border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold"><%= it.profil.bio ?? '' %></textarea>
+      </div>
+      <button type="submit" class="bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep">
+        <i class="bx bx-save"></i> Save changes
+      </button>
+    </form>
+  </section>
+
+  <!-- Public profile -->
+  <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-5">
+    <h2 class="font-bold text-studio-navy mb-1 flex items-center gap-1.5"><i class="bx bx-id-card text-xl text-studio-gold-deep"></i> Public profile</h2>
+    <p class="text-sm text-slate-500 mb-3">This is the page other people see when they visit your profile.</p>
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-studio-paper border border-slate-200 rounded-xl px-4 py-3">
+      <span class="text-sm font-mono text-slate-600 truncate"><%= publicPath %></span>
+      <a href="<%= publicPath %>" target="_blank" rel="noopener"
+        class="inline-flex items-center gap-1.5 bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep shrink-0">
+        <i class="bx bx-link-external"></i> Open public profile
+      </a>
+    </div>
+  </section>
+
+  <!-- Account -->
+  <section class="bg-white border border-slate-200 rounded-2xl p-6">
+    <h2 class="font-bold text-studio-navy mb-1 flex items-center gap-1.5"><i class="bx bx-user-circle text-xl text-studio-gold-deep"></i> Account</h2>
+    <p class="text-sm text-slate-500 mb-3">Signed in as <span class="font-semibold text-studio-navy">@<%= it.profil.username %></span>.</p>
+    <form method="post" action="/studio/logout">
+      <button type="submit" class="inline-flex items-center gap-1.5 border border-rose-300 text-rose-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-rose-50">
+        <i class="bx bx-log-out"></i> Sign out
+      </button>
+    </form>
+  </section>
+</div>

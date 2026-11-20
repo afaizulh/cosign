@@ -1,0 +1,79 @@
+<% layout("/layouts/studio") %>
+<% it.title = "Dashboard — CoSign Studio"; it.active = "dashboard"; %>
+
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">
+      Welcome back, <%= it.user.username %> 👋
+    </h1>
+    <p class="text-sm text-slate-500 mt-0.5">Here's what's happening in your studio today.</p>
+  </div>
+  <a href="/studio/publications"
+    class="inline-flex items-center gap-1.5 bg-studio-gold text-studio-navy font-extrabold text-sm px-4 py-2 rounded-xl hover:bg-studio-gold-deep hover:text-white">
+    <i class="bx bx-plus text-lg"></i> New Work
+  </a>
+</div>
+
+<%~ include("/partials/errors", { errors: null }) %>
+
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="bg-studio-navy text-white rounded-2xl p-5">
+    <p class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-studio-gold"><i class="bx bx-collection text-base"></i> Works</p>
+    <p class="text-3xl font-extrabold mt-1"><%= it.stats.works %></p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-2xl p-5">
+    <p class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><i class="bx bx-layer text-base text-studio-gold-deep"></i> Parts</p>
+    <p class="text-3xl font-extrabold mt-1 text-studio-navy"><%= it.stats.parts %></p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-2xl p-5">
+    <p class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><i class="bx bx-cube text-base text-studio-gold-deep"></i> 3D Assets</p>
+    <p class="text-3xl font-extrabold mt-1 text-studio-navy"><%= it.stats.assets %></p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-2xl p-5">
+    <p class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><i class="bx bx-heart text-base text-rose-500"></i> Likes received</p>
+    <p class="text-3xl font-extrabold mt-1 text-studio-navy"><%= it.stats.likes %></p>
+  </div>
+</section>
+
+<% if (it.incomplete.length > 0) { %>
+  <section class="bg-white border-2 border-dashed border-studio-gold rounded-2xl p-5 mb-6">
+    <h2 class="font-bold text-studio-navy flex items-center gap-1.5">
+      <i class="bx bx-time-five text-xl text-studio-gold-deep"></i> Continue working
+      <span class="text-xs font-semibold bg-studio-gold-soft text-studio-gold-deep px-2 py-0.5 rounded-full"><%= it.incomplete.length %> unfinished</span>
+    </h2>
+    <ul class="mt-3 space-y-2">
+      <% it.incomplete.forEach(function (k) { %>
+        <li class="flex flex-wrap items-center justify-between gap-2 bg-studio-paper border border-slate-200 rounded-xl px-4 py-2.5">
+          <div class="min-w-0">
+            <p class="font-semibold text-sm text-studio-navy truncate"><%= k.judul %></p>
+            <div class="mt-1.5 h-1.5 w-40 bg-slate-200 rounded-full overflow-hidden">
+              <div class="h-full bg-studio-gold rounded-full" style="width: <%= Math.round((k.present.length / 3) * 100) %>%"></div>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Missing: <%= k.missing.join(", ") %></p>
+          </div>
+          <a href="/studio/karya/<%= k.id %>"
+            class="inline-flex items-center gap-1 text-sm font-bold text-studio-navy hover:text-studio-gold-deep shrink-0">
+            Continue <i class="bx bx-right-arrow-alt"></i>
+          </a>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+<% } %>
+
+<section class="grid sm:grid-cols-2 gap-4">
+  <a href="/studio/publications" class="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-studio-gold flex items-center gap-4">
+    <span class="w-12 h-12 rounded-2xl bg-studio-gold-soft text-studio-gold-deep flex items-center justify-center text-2xl group-hover:bg-studio-gold group-hover:text-studio-navy"><i class="bx bx-collection"></i></span>
+    <span>
+      <span class="block font-bold text-studio-navy">My Publications</span>
+      <span class="block text-sm text-slate-500">Browse, create and manage all your works.</span>
+    </span>
+  </a>
+  <a href="/studio/settings" class="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-studio-gold flex items-center gap-4">
+    <span class="w-12 h-12 rounded-2xl bg-studio-gold-soft text-studio-gold-deep flex items-center justify-center text-2xl group-hover:bg-studio-gold group-hover:text-studio-navy"><i class="bx bx-cog"></i></span>
+    <span>
+      <span class="block font-bold text-studio-navy">Settings</span>
+      <span class="block text-sm text-slate-500">Update your profile and public page.</span>
+    </span>
+  </a>
+</section>

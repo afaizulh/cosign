@@ -25,7 +25,7 @@ async function uploadPart(
   const form = new FormData();
   form.append("kategori", kategori);
   form.append("media", media);
-  return app.request(`/admin/karya/${karyaId}/parts`, {
+  return app.request(`/studio/karya/${karyaId}/parts`, {
     method: "POST",
     headers: { cookie, ...formHeaders },
     body: form,
@@ -51,25 +51,25 @@ describe("Web — health & homepage", () => {
 });
 
 describe("Web — auth", () => {
-  test("GET /admin/login → form renders", async () => {
+  test("GET /studio/login → form renders", async () => {
     const app = createTestApp();
-    const res = await app.request("/admin/login");
+    const res = await app.request("/studio/login");
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('action="/admin/login"');
+    expect(html).toContain('action="/studio/login"');
     expect(html).toContain('name="username"');
   });
 
-  test("GET /admin/register → form renders", async () => {
+  test("GET /studio/register → form renders", async () => {
     const app = createTestApp();
-    const res = await app.request("/admin/register");
+    const res = await app.request("/studio/register");
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain('action="/admin/register"');
+    expect(await res.text()).toContain('action="/studio/register"');
   });
 
-  test("POST /admin/register → 302 /admin/karya + session cookie", async () => {
+  test("POST /studio/register → 302 /studio + session cookie", async () => {
     const app = createTestApp();
-    const res = await app.request("/admin/register", {
+    const res = await app.request("/studio/register", {
       method: "POST",
       headers: formPostHeaders,
       body: new URLSearchParams({
@@ -79,7 +79,7 @@ describe("Web — auth", () => {
       }).toString(),
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/karya");
+    expect(res.headers.get("location")).toBe("/studio");
     expect(cookieFrom(res)).toContain("sid=");
 
     // Cookie hardened: HttpOnly, SameSite, path, TTL from SESSION_TTL_DAYS (7 days).
@@ -92,12 +92,12 @@ describe("Web — auth", () => {
     expect(sidCookie).not.toContain("Secure");
   });
 
-  test("POST /admin/register duplicate username → re-render with error", async () => {
+  test("POST /studio/register duplicate username → re-render with error", async () => {
     const app = createTestApp();
     const body = new URLSearchParams({ username: "admin", password: "rahasia123" }).toString();
-    await app.request("/admin/register", { method: "POST", headers: formPostHeaders, body });
+    await app.request("/studio/register", { method: "POST", headers: formPostHeaders, body });
 
-    const res = await app.request("/admin/register", {
+    const res = await app.request("/studio/register", {
       method: "POST",
       headers: formPostHeaders,
       body,
@@ -106,9 +106,9 @@ describe("Web — auth", () => {
     expect(await res.text()).toContain("already taken");
   });
 
-  test("POST /admin/register short password → error, no redirect", async () => {
+  test("POST /studio/register short password → error, no redirect", async () => {
     const app = createTestApp();
-    const res = await app.request("/admin/register", {
+    const res = await app.request("/studio/register", {
       method: "POST",
       headers: formPostHeaders,
       body: new URLSearchParams({ username: "admin", password: "123" }).toString(),
@@ -117,10 +117,10 @@ describe("Web — auth", () => {
     expect(await res.text()).toContain("at least 6 characters");
   });
 
-  test("POST /admin/register unsafe username → rejected (URL-safe charset only)", async () => {
+  test("POST /studio/register unsafe username → rejected (URL-safe charset only)", async () => {
     const app = createTestApp();
     for (const bad of ["admin/", "admin profile", "Admin", "#user", "..", "ab", "a".repeat(21)]) {
-      const res = await app.request("/admin/register", {
+      const res = await app.request("/studio/register", {
         method: "POST",
         headers: formPostHeaders,
         body: new URLSearchParams({ username: bad, password: "rahasia123" }).toString(),
@@ -130,27 +130,28 @@ describe("Web — auth", () => {
     }
   });
 
-  test("POST /admin/register duplicate differs only by case → rejected", async () => {
+  test("POST /studio/register duplicate differs only by case → rejected", async () => {
     const app = createTestApp();
     await registerUser(app, "admin");
 
-    const res = await app.request("/admin/register", {
+    const res = await app.request("/studio/register", {
       method: "POST",
       headers: formPostHeaders,
       body: new URLSearchParams({ username: "ADMIN", password: "rahasia123" }).toString(),
     });
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain("admin");
+    expect(html).toContain('value="ADMIN"');
+    expect(html).toContain("3–20 characters");
     // "ADMIN" fails charset first, so it never reaches the taken check — assert single form of rejection
     expect(html).not.toContain("Welcome to CoSign");
   });
 
-  test("POST /admin/login wrong password → re-render with error", async () => {
+  test("POST /studio/login wrong password → re-render with error", async () => {
     const app = createTestApp();
     await registerUser(app);
 
-    const res = await app.request("/admin/login", {
+    const res = await app.request("/studio/login", {
       method: "POST",
       headers: formPostHeaders,
       body: new URLSearchParams({ username: "admin", password: "salah" }).toString(),
@@ -159,52 +160,110 @@ describe("Web — auth", () => {
     expect(await res.text()).toContain("Invalid username or password");
   });
 
-  test("POST /admin/login correct → 302 + cookie", async () => {
+  test("POST /studio/login correct → 302 + cookie", async () => {
     const app = createTestApp();
     await registerUser(app);
 
-    const res = await app.request("/admin/login", {
+    const res = await app.request("/studio/login", {
       method: "POST",
       headers: formPostHeaders,
       body: new URLSearchParams({ username: "admin", password: "rahasia123" }).toString(),
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/karya");
+    expect(res.headers.get("location")).toBe("/studio");
     expect(cookieFrom(res)).toContain("sid=");
   });
 
-  test("logged in → GET /admin/login redirects to /admin/karya", async () => {
+  test("logged in → GET /studio/login redirects to /studio", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const res = await app.request("/admin/login", { headers: { cookie } });
+    const res = await app.request("/studio/login", { headers: { cookie } });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/karya");
+    expect(res.headers.get("location")).toBe("/studio");
   });
 
-  test("POST /admin/logout → 302 /, session removed", async () => {
+  test("POST /studio/logout → 302 /, session removed", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const logout = await app.request("/admin/logout", {
+    const logout = await app.request("/studio/logout", {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
     expect(logout.status).toBe(302);
     expect(logout.headers.get("location")).toBe("/");
 
-    const karya = await app.request("/admin/karya", { headers: { cookie } });
+    const karya = await app.request("/studio/publications", { headers: { cookie } });
     expect(karya.status).toBe(302);
-    expect(karya.headers.get("location")).toBe("/admin/login");
+    expect(karya.headers.get("location")).toBe("/studio/login");
+  });
+});
+
+describe("Web — studio prefix (rename from /admin)", () => {
+  test("legacy /admin/* URLs redirect to /studio/*", async () => {
+    const app = createTestApp();
+    for (const [from, to] of [
+      ["/admin/login", "/studio/login"],
+      ["/admin/karya", "/studio/karya"],
+      ["/admin/profil", "/studio/settings"],
+    ]) {
+      const res = await app.request(from);
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe(to);
+    }
   });
 });
 
 describe("Web — karya (auth)", () => {
-  test("GET /admin/karya without login → 302 /admin/login", async () => {
+  test("GET /studio & /studio/publications without login → 302 /studio/login", async () => {
     const app = createTestApp();
-    const res = await app.request("/admin/karya");
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/login");
+    for (const path of ["/studio", "/studio/publications"]) {
+      const res = await app.request(path);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/studio/login");
+    }
+  });
+
+  test("legacy GET /studio/karya → 301 /studio/publications", async () => {
+    const app = createTestApp();
+    const res = await app.request("/studio/karya");
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe("/studio/publications");
+  });
+
+  test("dashboard → stats + continue-working; publications → create form + all works", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const create = await app.request("/studio/publications", {
+      method: "POST",
+      headers: { cookie, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Studio Dash", deskripsi: "", kategori: "desain" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    // Dashboard: greeting + stats + works needing parts
+    const dash = await (await app.request("/studio", { headers: { cookie } })).text();
+    expect(dash).toContain("Welcome back");
+    expect(dash).toContain("Likes received");
+    expect(dash).toContain("Studio Dash");
+    // fresh 2D karya has no parts → shows up under "Continue working"
+    expect(dash).toContain("Continue working");
+    expect(dash).toContain("Missing:");
+    expect(dash).not.toContain('action="/studio/publications"'); // no create form here
+
+    // Publications: create form + full list
+    const list = await (await app.request("/studio/publications", { headers: { cookie } })).text();
+    expect(list).toContain("Publications");
+    expect(list).toContain('action="/studio/publications"');
+    expect(list).toContain("All works");
+    expect(list).toContain(`/studio/karya/${karyaId}`);
+    expect(list).not.toContain("Continue working");
+
+    await app.request(`/studio/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
   });
 
   test("full flow: create karya → upload parts → homepage card → customizer → like → delete", async () => {
@@ -212,7 +271,7 @@ describe("Web — karya (auth)", () => {
     const cookie = await registerUser(app);
 
     // Create karya
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({
@@ -223,7 +282,7 @@ describe("Web — karya (auth)", () => {
     });
     expect(create.status).toBe(302);
     const manageUrl = create.headers.get("location")!;
-    expect(manageUrl).toMatch(/^\/admin\/karya\/[0-9a-f-]+$/);
+    expect(manageUrl).toMatch(/^\/studio\/karya\/[0-9a-f-]+$/);
     const karyaId = manageUrl.split("/").pop()!;
 
     // Manage page renders 3 part sections
@@ -273,7 +332,7 @@ describe("Web — karya (auth)", () => {
     const manage2 = await (await app.request(manageUrl, { headers: { cookie } })).text();
     const partId = manage2.match(/\/parts\/([0-9a-f-]+)\/delete/)?.[1];
     expect(partId).toBeTruthy();
-    const del = await app.request(`/admin/karya/${karyaId}/parts/${partId}/delete`, {
+    const del = await app.request(`/studio/karya/${karyaId}/parts/${partId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -281,14 +340,14 @@ describe("Web — karya (auth)", () => {
     expect(del.headers.get("location")).toBe(manageUrl);
 
     // Delete karya + remaining files
-    const delKarya = await app.request(`/admin/karya/${karyaId}/delete`, {
+    const delKarya = await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
     expect(delKarya.status).toBe(302);
-    expect(delKarya.headers.get("location")).toBe("/admin/karya");
+    expect(delKarya.headers.get("location")).toBe("/studio/publications");
 
-    const myWorks = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    const myWorks = await (await app.request("/studio/publications", { headers: { cookie } })).text();
     expect(myWorks).toContain("You haven't created any work yet");
   });
 
@@ -296,7 +355,7 @@ describe("Web — karya (auth)", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
@@ -308,7 +367,7 @@ describe("Web — karya (auth)", () => {
     expect(res.status).toBe(302);
 
     const sidCookie = cookie.split(";")[0];
-    const page = await app.request(`/admin/karya/${karyaId}`, {
+    const page = await app.request(`/studio/karya/${karyaId}`, {
       headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
     });
     expect(await page.text()).toContain("Only image files are allowed");
@@ -318,7 +377,7 @@ describe("Web — karya (auth)", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
@@ -330,16 +389,16 @@ describe("Web — karya (auth)", () => {
     form.append("kategori", "kepala");
     form.append("media", big);
 
-    const res = await app.request(`/admin/karya/${karyaId}/parts`, {
+    const res = await app.request(`/studio/karya/${karyaId}/parts`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
       body: form,
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe(`/admin/karya/${karyaId}`);
+    expect(res.headers.get("location")).toBe(`/studio/karya/${karyaId}`);
 
     const sidCookie = cookie.split(";")[0];
-    const page = await app.request(`/admin/karya/${karyaId}`, {
+    const page = await app.request(`/studio/karya/${karyaId}`, {
       headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
     });
     expect(await page.text()).toContain("Upload too large");
@@ -349,7 +408,7 @@ describe("Web — karya (auth)", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
@@ -358,13 +417,13 @@ describe("Web — karya (auth)", () => {
 
     const form = new FormData();
     form.append("kategori", "kepala");
-    const res = await app.request(`/admin/karya/${karyaId}/parts`, {
+    const res = await app.request(`/studio/karya/${karyaId}/parts`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
       body: form,
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe(`/admin/karya/${karyaId}`);
+    expect(res.headers.get("location")).toBe(`/studio/karya/${karyaId}`);
   });
 
   test("owner guard: other user cannot delete parts", async () => {
@@ -372,7 +431,7 @@ describe("Web — karya (auth)", () => {
     const cookie1 = await registerUser(app, "owner1");
     const cookie2 = await registerUser(app, "owner2");
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie: cookie1, ...formPostHeaders },
       body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
@@ -381,21 +440,21 @@ describe("Web — karya (auth)", () => {
     await uploadPart(app, cookie1, karyaId, "kepala");
 
     // owner2 tries to delete owner1's part → redirected, part still exists
-    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie: cookie1 } })).text();
+    const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie: cookie1 } })).text();
     const partId = manage.match(/\/parts\/([0-9a-f-]+)\/delete/)?.[1]!;
 
-    const res = await app.request(`/admin/karya/${karyaId}/parts/${partId}/delete`, {
+    const res = await app.request(`/studio/karya/${karyaId}/parts/${partId}/delete`, {
       method: "POST",
       headers: { cookie: cookie2, ...formHeaders },
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/karya");
+    expect(res.headers.get("location")).toBe("/studio/publications");
 
-    const check = await app.request(`/admin/karya/${karyaId}`, { headers: { cookie: cookie1 } });
+    const check = await app.request(`/studio/karya/${karyaId}`, { headers: { cookie: cookie1 } });
     expect(await check.text()).toContain('name="kategori" value="kepala"');
 
     // Cleanup: owner1 deletes the karya (removes the part file too)
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie: cookie1, ...formHeaders },
     });
@@ -405,7 +464,7 @@ describe("Web — karya (auth)", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
@@ -415,7 +474,7 @@ describe("Web — karya (auth)", () => {
     const res = await uploadPart(app, cookie, karyaId, "tangan");
     expect(res.status).toBe(302);
     const sidCookie = cookie.split(";")[0];
-    const page = await app.request(`/admin/karya/${karyaId}`, {
+    const page = await app.request(`/studio/karya/${karyaId}`, {
       headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
     });
     expect(await page.text()).toContain("Invalid part category");
@@ -429,7 +488,7 @@ describe("Web — karya 3D", () => {
     app: { request: (path: string, init?: RequestInit) => Promise<Response> | Response },
     cookie: string
   ) {
-    const res = await app.request("/admin/karya", {
+    const res = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({
@@ -449,13 +508,13 @@ describe("Web — karya 3D", () => {
     const { res, loc, karyaId } = await create3d(app, cookie);
 
     expect(res.status).toBe(302);
-    expect(loc).toBe(`/admin/karya/${karyaId}/3d`);
+    expect(loc).toBe(`/studio/karya/${karyaId}/3d`);
 
     const page = await (await app.request(loc, { headers: { cookie } })).text();
     expect(page).toContain("Upload 3D asset");
     expect(page).toContain('accept=".glb,.gltf,.obj,.fbx,.stl,.usdz"');
 
-    const partsPage = await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } });
+    const partsPage = await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } });
     expect(partsPage.status).toBe(302);
     expect(partsPage.headers.get("location")).toBe(loc);
   });
@@ -464,16 +523,16 @@ describe("Web — karya 3D", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const res = await app.request("/admin/karya", {
+    const res = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Flat", deskripsi: "", kategori: "desain", tipe: "2d" }).toString(),
     });
     const loc = res.headers.get("location")!;
     const karyaId = loc.split("/").pop()!;
-    expect(loc).toBe(`/admin/karya/${karyaId}`);
+    expect(loc).toBe(`/studio/karya/${karyaId}`);
 
-    const threeD = await app.request(`/admin/karya/${karyaId}/3d`, { headers: { cookie } });
+    const threeD = await app.request(`/studio/karya/${karyaId}/3d`, { headers: { cookie } });
     expect(threeD.status).toBe(302);
     expect(threeD.headers.get("location")).toBe(loc);
   });
@@ -486,7 +545,7 @@ describe("Web — karya 3D", () => {
     const form = new FormData();
     form.append("nama", "Main model");
     form.append("media", GLB);
-    const up = await app.request(`/admin/karya/${karyaId}/3d`, {
+    const up = await app.request(`/studio/karya/${karyaId}/3d`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
       body: form,
@@ -500,10 +559,10 @@ describe("Web — karya 3D", () => {
     expect(file).toBeTruthy();
 
     // Admin list shows asset count + Manage Assets for 3D works
-    const list = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    const list = await (await app.request("/studio/publications", { headers: { cookie } })).text();
     expect(list).toContain("1 asset");
     expect(list).toContain("Manage Assets");
-    expect(list).toContain(`/admin/karya/${karyaId}/3d`);
+    expect(list).toContain(`/studio/karya/${karyaId}/3d`);
 
     const pub = await (await app.request(`/karya/${karyaId}`)).text();
     expect(pub).toContain("3D assets");
@@ -511,14 +570,14 @@ describe("Web — karya 3D", () => {
 
     const assetId = page.match(/\/3d\/([0-9a-f-]+)\/delete/)?.[1];
     expect(assetId).toBeTruthy();
-    const del = await app.request(`/admin/karya/${karyaId}/3d/${assetId}/delete`, {
+    const del = await app.request(`/studio/karya/${karyaId}/3d/${assetId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
     expect(del.status).toBe(302);
     expect(() => unlinkSync(`uploads/${file}`)).toThrow();
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -531,7 +590,7 @@ describe("Web — karya 3D", () => {
 
     const form = new FormData();
     form.append("media", new File(["hello"], "notes.txt", { type: "text/plain" }));
-    const up = await app.request(`/admin/karya/${karyaId}/3d`, {
+    const up = await app.request(`/studio/karya/${karyaId}/3d`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
       body: form,
@@ -553,7 +612,7 @@ describe("Web — karya 3D", () => {
 
     const res = await app.request(loc, { headers: { cookie: cookie2 } });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/karya");
+    expect(res.headers.get("location")).toBe("/studio/publications");
   });
 });
 
@@ -569,7 +628,7 @@ describe("Web — public pages", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Publik", deskripsi: "", kategori: "desain" }).toString(),
@@ -578,14 +637,14 @@ describe("Web — public pages", () => {
 
     const res = await app.request(`/karya/${karyaId}`);
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("/admin/login");
+    expect(await res.text()).toContain("/studio/login");
   });
 
   test("like state: liked karya shows 'Liked' button for that user only", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Like State", deskripsi: "", kategori: "desain" }).toString(),
@@ -606,7 +665,7 @@ describe("Web — public pages", () => {
     expect(after).toContain("♥ Liked");
 
     const guest = await (await app.request(`/karya/${karyaId}`)).text();
-    expect(guest).toContain('href="/admin/login"');
+    expect(guest).toContain('href="/studio/login"');
 
     // Toggle back off
     await app.request(`/karya/${karyaId}/like`, {
@@ -616,7 +675,7 @@ describe("Web — public pages", () => {
     const unliked = await (await app.request(`/karya/${karyaId}`, { headers: { cookie } })).text();
     expect(unliked).toContain('aria-pressed="false"');
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -626,7 +685,7 @@ describe("Web — public pages", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Profil Karya", deskripsi: "", kategori: "desain" }).toString(),
@@ -645,7 +704,7 @@ describe("Web — public pages", () => {
     expect(unknown.headers.get("location")).toBe("/");
 
     // Cleanup: delete the karya (removes the part file too)
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -656,7 +715,7 @@ describe("Web — public pages", () => {
     const cookie = await registerUser(app);
 
     const mk = (judul: string, kategori: string) =>
-      app.request("/admin/karya", {
+      app.request("/studio/publications", {
         method: "POST",
         headers: { cookie, ...formPostHeaders },
         body: new URLSearchParams({ judul, deskripsi: "", kategori }).toString(),
@@ -673,20 +732,20 @@ describe("Web — public pages", () => {
     expect(filtered).not.toContain("Motion Dua");
   });
 
-  test("POST /admin/karya with invalid kategori falls back to 'lainnya'", async () => {
+  test("POST /studio/karya with invalid kategori falls back to 'lainnya'", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const res = await app.request("/admin/karya", {
+    const res = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Sneaky", deskripsi: "", kategori: "hacker" }).toString(),
     });
     expect(res.status).toBe(302);
     const loc = res.headers.get("location")!;
-    expect(loc).toMatch(/^\/admin\/karya\/[^/]+$/);
+    expect(loc).toMatch(/^\/studio\/karya\/[^/]+$/);
 
-    const list = await (await app.request("/admin/karya", { headers: { cookie } })).text();
+    const list = await (await app.request("/studio/publications", { headers: { cookie } })).text();
     expect(list).toContain("Sneaky");
     expect(list).toContain("lainnya");
     expect(list).not.toContain("hacker");
@@ -698,22 +757,22 @@ describe("Web — edit karya", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Old Title", deskripsi: "old", kategori: "desain" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
-    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+    const edit = await app.request(`/studio/karya/${karyaId}/edit`, {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "New Title", deskripsi: "new desc", kategori: "motion" }).toString(),
     });
     expect(edit.status).toBe(302);
-    expect(edit.headers.get("location")).toBe(`/admin/karya/${karyaId}`);
+    expect(edit.headers.get("location")).toBe(`/studio/karya/${karyaId}`);
 
-    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } })).text();
+    const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } })).text();
     expect(manage).toContain("New Title");
     expect(manage).toContain("new desc");
 
@@ -726,14 +785,14 @@ describe("Web — edit karya", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Keep Me", deskripsi: "", kategori: "desain" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
-    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+    const edit = await app.request(`/studio/karya/${karyaId}/edit`, {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "  ", deskripsi: "", kategori: "desain" }).toString(),
@@ -749,20 +808,20 @@ describe("Web — edit karya", () => {
     const cookie1 = await registerUser(app, "owner1");
     const cookie2 = await registerUser(app, "owner2");
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie: cookie1, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Mine", deskripsi: "", kategori: "desain" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
 
-    const edit = await app.request(`/admin/karya/${karyaId}/edit`, {
+    const edit = await app.request(`/studio/karya/${karyaId}/edit`, {
       method: "POST",
       headers: { cookie: cookie2, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Hacked", deskripsi: "", kategori: "desain" }).toString(),
     });
     expect(edit.status).toBe(302);
-    expect(edit.headers.get("location")).toBe("/admin/karya");
+    expect(edit.headers.get("location")).toBe("/studio/publications");
 
     const home = await (await app.request("/")).text();
     expect(home).toContain("Mine");
@@ -776,7 +835,7 @@ describe("Web — search & sort", () => {
     const cookie = await registerUser(app);
 
     const mk = (judul: string) =>
-      app.request("/admin/karya", {
+      app.request("/studio/publications", {
         method: "POST",
         headers: { cookie, ...formPostHeaders },
         body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
@@ -805,7 +864,7 @@ describe("Web — file cleanup", () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "A", deskripsi: "", kategori: "desain" }).toString(),
@@ -814,12 +873,12 @@ describe("Web — file cleanup", () => {
     const up = await uploadPart(app, cookie, karyaId, "kepala");
     void up;
 
-    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } })).text();
+    const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } })).text();
     const file = manage.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1];
     expect(file).toBeTruthy();
     expect(() => unlinkSync(`uploads/${file}`)).not.toThrow();
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -834,14 +893,14 @@ describe("Web — regression (bug #16 coverage)", () => {
     cookie: string,
     judul = "Seed"
   ) {
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
     });
     const karyaId = create.headers.get("location")!.split("/").pop()!;
     await uploadPart(app, cookie, karyaId, "kepala");
-    const manage = await (await app.request(`/admin/karya/${karyaId}`, { headers: { cookie } })).text();
+    const manage = await (await app.request(`/studio/karya/${karyaId}`, { headers: { cookie } })).text();
     const partId = manage.match(/\/parts\/([0-9a-f-]+)\/delete/)?.[1]!;
     const file = manage.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1]!;
     return { karyaId, partId, file };
@@ -862,7 +921,7 @@ describe("Web — regression (bug #16 coverage)", () => {
     expect(profil).toContain(`/uploads/${file}`);
     expect(profil).not.toContain("/uploads/uploads/");
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -877,18 +936,18 @@ describe("Web — regression (bug #16 coverage)", () => {
     const b = await seedKarya(app, victim, "B");
 
     // Attacker uses their own karya id + victim's part id.
-    await app.request(`/admin/karya/${a.karyaId}/parts/${b.partId}/delete`, {
+    await app.request(`/studio/karya/${a.karyaId}/parts/${b.partId}/delete`, {
       method: "POST",
       headers: { cookie: attacker, ...formHeaders },
     });
 
     // Victim's part must survive.
-    const bManage = await (await app.request(`/admin/karya/${b.karyaId}`, { headers: { cookie: victim } })).text();
+    const bManage = await (await app.request(`/studio/karya/${b.karyaId}`, { headers: { cookie: victim } })).text();
     expect(bManage).toContain(`/parts/${b.partId}/delete`);
     expect(bManage).not.toContain("No head images yet");
 
     for (const [cookie, id] of [[attacker, a.karyaId], [victim, b.karyaId]] as const) {
-      await app.request(`/admin/karya/${id}/delete`, {
+      await app.request(`/studio/karya/${id}/delete`, {
         method: "POST",
         headers: { cookie, ...formHeaders },
       });
@@ -900,7 +959,7 @@ describe("Web — regression (bug #16 coverage)", () => {
     const cookie = await registerUser(app);
     const before = new Set(readdirSync("uploads"));
 
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul: "Ext", deskripsi: "", kategori: "desain" }).toString(),
@@ -916,7 +975,7 @@ describe("Web — regression (bug #16 coverage)", () => {
     expect(created[0].endsWith(".html")).toBe(false);
     expect(created[0].endsWith(".png")).toBe(true);
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -935,7 +994,7 @@ describe("Web — regression (bug #16 coverage)", () => {
       headers: { cookie, ...formHeaders },
     });
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -947,47 +1006,62 @@ describe("Web — regression (bug #16 coverage)", () => {
   });
 });
 
-describe("Web — edit profil", () => {
-  test("GET /admin/profil without login → 302 /admin/login", async () => {
+describe("Web — settings", () => {
+  test("legacy GET /studio/profil → 301 /studio/settings", async () => {
     const app = createTestApp();
-    const res = await app.request("/admin/profil");
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/login");
+    const res = await app.request("/studio/profil");
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe("/studio/settings");
   });
 
-  test("GET /admin/profil → form renders", async () => {
+  test("GET /studio/settings without login → 302 /studio/login", async () => {
+    const app = createTestApp();
+    const res = await app.request("/studio/settings");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/studio/login");
+  });
+
+  test("GET /studio/settings → renders profile, public page & account sections", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
-    const res = await app.request("/admin/profil", { headers: { cookie } });
+    const res = await app.request("/studio/settings", { headers: { cookie } });
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain("Edit Profile");
+    expect(html).toContain("Settings");
+    expect(html).toContain("Profile details");
+    expect(html).toContain("Public profile");
     expect(html).toContain('name="bio"');
     expect(html).toContain('name="full_name"');
+    expect(html).toContain('action="/studio/settings"');
+    expect(html).toContain('action="/studio/settings/avatar"');
+    expect(html).toContain("/profil/admin");
+    // Explore was removed from the studio nav; settings is one menu now
+    expect(html).not.toContain("> Explore<");
+    expect(html).toContain("Settings");
   });
 
-  test("POST /admin/profil updates full name & bio", async () => {
+  test("POST /studio/settings updates full name & bio", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const res = await app.request("/admin/profil", {
+    const res = await app.request("/studio/settings", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ full_name: "Hudya R", bio: "Illustrator and designer" }).toString(),
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/admin/profil");
+    expect(res.headers.get("location")).toBe("/studio/settings");
 
     const profil = await (await app.request("/profil/admin")).text();
     expect(profil).toContain("Hudya R");
     expect(profil).toContain("Illustrator and designer");
   });
 
-  test("POST /admin/profil bio too long → flash error, unchanged", async () => {
+  test("POST /studio/settings bio too long → flash error, unchanged", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
 
-    const res = await app.request("/admin/profil", {
+    const res = await app.request("/studio/settings", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ full_name: "Keep", bio: "x".repeat(501) }).toString(),
@@ -995,7 +1069,7 @@ describe("Web — edit profil", () => {
     expect(res.status).toBe(302);
 
     const sidCookie = cookie.split(";")[0];
-    const page = await app.request("/admin/profil", {
+    const page = await app.request("/studio/settings", {
       headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
     });
     expect(await page.text()).toContain("Bio is too long");
@@ -1011,7 +1085,7 @@ describe("Web — edit profil", () => {
     const upload = async (name: string) => {
       const form = new FormData();
       form.append("avatar", new File(["img"], name, { type: "image/png" }));
-      return app.request("/admin/profil/avatar", {
+      return app.request("/studio/settings/avatar", {
         method: "POST",
         headers: { cookie, ...formHeaders },
         body: form,
@@ -1020,13 +1094,13 @@ describe("Web — edit profil", () => {
 
     const first = await upload("one.png");
     expect(first.status).toBe(302);
-    const page1 = await (await app.request("/admin/profil", { headers: { cookie } })).text();
+    const page1 = await (await app.request("/studio/settings", { headers: { cookie } })).text();
     const file1 = page1.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1];
     expect(file1).toBeTruthy();
 
     const second = await upload("two.png");
     expect(second.status).toBe(302);
-    const page2 = await (await app.request("/admin/profil", { headers: { cookie } })).text();
+    const page2 = await (await app.request("/studio/settings", { headers: { cookie } })).text();
     const file2 = page2.match(/\/uploads\/([0-9a-f-]+\.png)/)?.[1];
     expect(file2).toBeTruthy();
     expect(file2).not.toBe(file1);
@@ -1036,7 +1110,7 @@ describe("Web — edit profil", () => {
     expect(profil).toContain(`/uploads/${file2}`);
 
     // Remove avatar
-    const del = await app.request("/admin/profil/avatar/delete", {
+    const del = await app.request("/studio/settings/avatar/delete", {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });
@@ -1050,7 +1124,7 @@ describe("Web — edit profil", () => {
 
     const form = new FormData();
     form.append("avatar", new File(["hello"], "notes.txt", { type: "text/plain" }));
-    const res = await app.request("/admin/profil/avatar", {
+    const res = await app.request("/studio/settings/avatar", {
       method: "POST",
       headers: { cookie, ...formHeaders },
       body: form,
@@ -1058,7 +1132,7 @@ describe("Web — edit profil", () => {
     expect(res.status).toBe(302);
 
     const sidCookie = cookie.split(";")[0];
-    const page = await app.request("/admin/profil", {
+    const page = await app.request("/studio/settings", {
       headers: { cookie: `${sidCookie}; ${cookieFrom(res)}` },
     });
     expect(await page.text()).toContain("Only image files are allowed");
@@ -1071,7 +1145,7 @@ describe("Web — komentar karya", () => {
     cookie: string,
     judul = "Komentar"
   ) {
-    const create = await app.request("/admin/karya", {
+    const create = await app.request("/studio/publications", {
       method: "POST",
       headers: { cookie, ...formPostHeaders },
       body: new URLSearchParams({ judul, deskripsi: "", kategori: "desain" }).toString(),
@@ -1196,7 +1270,7 @@ describe("Web — komentar karya", () => {
       body: new URLSearchParams({ body: "Bye" }).toString(),
     });
 
-    await app.request(`/admin/karya/${karyaId}/delete`, {
+    await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
     });

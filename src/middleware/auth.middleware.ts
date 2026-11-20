@@ -43,17 +43,17 @@ export function destroySession(c: Context<AppEnv>, db: Db) {
 export function requireAuth(db: Db) {
   return async (c: Context<AppEnv>, next: Next) => {
     const userId = getUserId(c, db);
-    if (!userId) return c.redirect("/admin/login", 302);
+    if (!userId) return c.redirect("/studio/login", 302);
     c.set("userId", userId);
     await next();
   };
 }
 
-/** Middleware guest: for login/register pages — logged-in users go to /admin/karya. */
+/** Middleware guest: for login/register pages — logged-in users go to /studio. */
 export function redirectIfAuthenticated(db: Db) {
   return async (c: Context<AppEnv>, next: Next) => {
     const userId = getUserId(c, db);
-    if (userId) return c.redirect("/admin/karya", 302);
+    if (userId) return c.redirect("/studio", 302);
     await next();
   };
 }

@@ -13,7 +13,7 @@ import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 // 10 attempts / 15 min per IP for auth endpoints (brute-force protection).
 const authLimiter = () => rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
-/** Controller: /admin/auth — register, login, logout (form POST). */
+/** Controller: /studio/auth — register, login, logout (form POST). */
 export function authController(db: Db) {
   const app = new Hono<AppEnv>();
 
@@ -25,7 +25,7 @@ export function authController(db: Db) {
   const users = new UserModel(db.sqlite);
 
   app.get("/login", redirectIfAuthenticated(db), (c) =>
-    view(c, "admin/auth/login", { errors: null, old: {} })
+    view(c, "studio/auth/login", { errors: null, old: {} })
   );
 
   app.post("/login", authLimiter(), redirectIfAuthenticated(db), async (c) => {
@@ -35,7 +35,7 @@ export function authController(db: Db) {
 
     const id = await users.verifyPassword(username, password);
     if (!id) {
-      return view(c, "admin/auth/login", {
+      return view(c, "studio/auth/login", {
         errors: ["Invalid username or password."],
         old: { username },
       });
@@ -43,11 +43,11 @@ export function authController(db: Db) {
 
     await createSession(c, db, id);
     flashSuccess(c, "Welcome back!");
-    return redirect(c, "/admin/karya");
+    return redirect(c, "/studio");
   });
 
   app.get("/register", redirectIfAuthenticated(db), (c) =>
-    view(c, "admin/auth/register", { errors: null, old: {} })
+    view(c, "studio/auth/register", { errors: null, old: {} })
   );
 
   app.post("/register", authLimiter(), redirectIfAuthenticated(db), async (c) => {
@@ -71,7 +71,7 @@ export function authController(db: Db) {
     }
 
     if (errors.length) {
-      return view(c, "admin/auth/register", {
+      return view(c, "studio/auth/register", {
         errors,
         old: { username, full_name: fullName },
       });
@@ -80,7 +80,7 @@ export function authController(db: Db) {
     const id = await users.create(username, password, fullName || undefined);
     await createSession(c, db, id);
     flashSuccess(c, "Account created. Welcome to CoSign!");
-    return redirect(c, "/admin/karya");
+    return redirect(c, "/studio");
   });
 
   app.post("/logout", requireAuth(db), (c) => {

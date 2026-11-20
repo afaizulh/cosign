@@ -2,3 +2,26 @@
 
 @source "../../views/**/*.eta.html";
 @source "../../public/**/*.js";
+
+/* CoSign Studio palette — "Makara Studio" (navy + gold, CCIT-FTUI family) */
+@theme {
+  --color-studio-navy: #1f2a44;
+  --color-studio-navy-deep: #141d33;
+  --color-studio-navy-soft: #2c3a5c;
+  --color-studio-gold: #e8a100;
+  --color-studio-gold-deep: #c98a00;
+  --color-studio-gold-soft: #fdf3d7;
+  --color-studio-paper: #faf9f6;
+}
+
+/* Transparency checkerboard for the composition preview */
+.checkerboard {
+  background-color: #f1f5f9;
+  background-image:
+    linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+    linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
