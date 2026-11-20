@@ -56,6 +56,7 @@ src/
 ├── controllers/            # CONTROLLER — parse form → model → view/redirect
 │   ├── auth.controller.ts  #   /studio/login, /studio/register, /studio/logout
 │   ├── settings.controller.ts # /studio/settings — profil, bio, avatar
+│   ├── admin.controller.ts #   /admin/* — moderasi (admin only)
 │   ├── page.controller.ts  #   GET / (explore), GET /profil/:username
 │   └── karya.controller.ts #   karyaAdminController (mounted /studio) +
 │                           #   karyaPublicController (mounted /) — detail/customizer + like
@@ -67,6 +68,7 @@ src/
 views/                      # VIEW — template Eta
 ├── layouts/                # admin.eta.html & homepage.eta.html (pakai it.body)
 ├── partials/               # navbar, errors, karya-card (komposisi ter-layer)
+├── admin/                  # dashboard, works/, users/, log
 ├── studio/                 # dashboard, publications, settings, auth/, karya/
 └── homepage/               # index (explore), karya (customizer), profil
 public/                     # aset statis: style.css (Tailwind), customizer.js
@@ -141,6 +143,10 @@ test/                       # unit test
 - **DB driver env-driven** (`src/db.ts`): `DB_DRIVER=sqlite` (default) atau
   `supabase`. Mode supabase **belum diimplementasikan** — controller mengecek
   `if (!db.sqlite)` lalu return `501`. JANGAN hapus guard ini.
+- **Admin**: `/admin/*` dijaga `requireAdmin(db)` — guest → `302 /studio/login`,
+  member → `403`. Aksi moderasi: `karya.takedown` (soft delete, ada alasan),
+  `user.suspend` (sesi dihapus, karya ikut disembunyikan). Semua aksi dicatat di
+  `moderation_log`. Admin pertama dibuat via CLI: `bun run admin:grant <username>`.
 - CSRF: `hono/csrf` origin-check via `CSRF_ORIGIN` env (default
   `http://localhost:3000`). Form POST dari origin lain → 403.
 - **`.env`** TIDAK pernah di-commit (sudah di `.gitignore`). Cukup ikuti

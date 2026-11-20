@@ -200,18 +200,22 @@ describe("Web — auth", () => {
   });
 });
 
-describe("Web — studio prefix (rename from /admin)", () => {
-  test("legacy /admin/* URLs redirect to /studio/*", async () => {
+describe("Web — /admin prefix", () => {
+  test("guest GET /admin → redirected to login (redirect back, not a 403)", async () => {
     const app = createTestApp();
-    for (const [from, to] of [
-      ["/admin/login", "/studio/login"],
-      ["/admin/karya", "/studio/karya"],
-      ["/admin/profil", "/studio/settings"],
-    ]) {
-      const res = await app.request(from);
-      expect(res.status).toBe(301);
-      expect(res.headers.get("location")).toBe(to);
+    for (const path of ["/admin", "/admin/works", "/admin/users", "/admin/log"]) {
+      const res = await app.request(path);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/studio/login");
     }
+  });
+
+  test("the old /admin → /studio compat redirect is gone (prefix reclaimed)", async () => {
+    const app = createTestApp();
+    // /admin/profil no longer 301s to /studio/settings; it is an admin-only 302.
+    const res = await app.request("/admin/profil");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/studio/login");
   });
 });
 

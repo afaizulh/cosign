@@ -133,6 +133,17 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 | POST | `/studio/karya/:id/3d` | upload asset 3D (GLB/GLTF/OBJ/FBX/STL/USDZ) | ✓ (owner) |
 | POST | `/studio/karya/:id/3d/:aid/delete` | hapus asset 3D | ✓ (owner) |
 | POST | `/studio/karya/:id/delete` | hapus karya + semua file part/asset | ✓ (owner) |
+| GET | `/admin` | `admin/dashboard` — ringkasan moderasi | ✓ (admin) |
+| GET | `/admin/works` | `admin/works/index` — semua karya + filter status | ✓ (admin) |
+| GET | `/admin/works/:id` | `admin/works/show` — preview + panel moderasi | ✓ (admin) |
+| POST | `/admin/works/:id/takedown` | sembunyikan karya + alasan (soft delete) | ✓ (admin) |
+| POST | `/admin/works/:id/restore` | tampilkan lagi | ✓ (admin) |
+| GET | `/admin/users` | `admin/users/index` — semua akun + filter status | ✓ (admin) |
+| GET | `/admin/users/:id` | `admin/users/show` — detail akun + aksi | ✓ (admin) |
+| POST | `/admin/users/:id/suspend` | nonaktifkan akun + alasan (sesi dihapus) | ✓ (admin) |
+| POST | `/admin/users/:id/reactivate` | aktifkan lagi | ✓ (admin) |
+| POST | `/admin/users/:id/role` | ubah role member ⇄ admin | ✓ (admin) |
+| GET | `/admin/log` | `admin/log` — audit trail aksi admin | ✓ (admin) |
 
 Semua mutasi via form POST (PRG). Karya punya `tipe` **2d** (part gambar) atau
 **3d** (asset 3D). Upload gambar (part & avatar) divalidasi: hanya

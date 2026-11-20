@@ -5,7 +5,8 @@ import { unlinkSync, existsSync } from "fs";
 import type { Db } from "../db";
 import { KaryaModel } from "../models/karya.model";
 import { CommentModel } from "../models/comment.model";
-import { requireAuth } from "../middleware/auth.middleware";
+import { requireAuth, getUserId } from "../middleware/auth.middleware";
+import { UserModel } from "../models/user.model";
 import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 import { partsByCategory, latestParts } from "../composition";
 import { saveImage, MAX_UPLOAD_BODY } from "../uploads";
@@ -389,6 +390,15 @@ export function karyaPublicController(db: Db) {
     const item = karya.findById(c.req.param("id")!);
     if (!item) {
       flashError(c, "Work not found.");
+      return redirect(c, "/");
+    }
+    // Moderation: a taken-down work is invisible unless you own it (you get a
+    // banner) or you are an admin reviewing it.
+    const viewer = getUserId(c, db);
+    const viewerIsOwner = viewer === item.user_id;
+    const viewerIsAdmin = viewer ? new UserModel(db.sqlite!).isAdmin(viewer) : false;
+    if ((item as { status?: string }).status === "taken_down" && !viewerIsOwner && !viewerIsAdmin) {
+      flashError(c, "This work is not available.");
       return redirect(c, "/");
     }
     const user = c.get("user" as never) as { id: string } | null;
