@@ -38,6 +38,11 @@
   <div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 text-center">
     <i class="bx bx-collection text-3xl text-slate-300"></i>
     <p class="font-bold text-studio-navy mt-2">No works match this filter.</p>
+    <% if (it.q || it.aktif) { %>
+      <a href="/admin/works" class="inline-flex items-center gap-1.5 mt-3 border border-slate-300 px-4 py-2 rounded-xl text-sm font-semibold text-studio-navy hover:bg-slate-50">
+        <i class="bx bx-reset"></i> Clear filters
+      </a>
+    <% } %>
   </div>
 <% } else { %>
   <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -79,5 +84,6 @@
         <% }) %>
       </tbody>
     </table>
+    <%~ include("/partials/admin-pagination", { base: "/admin/works", meta: it.meta, filters: { status: it.aktif, q: it.q } }) %>
   </div>
 <% } %>

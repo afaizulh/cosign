@@ -37,6 +37,11 @@
   <div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 text-center">
     <i class="bx bx-group text-3xl text-slate-300"></i>
     <p class="font-bold text-studio-navy mt-2">No users match this filter.</p>
+    <% if (it.q || it.aktif) { %>
+      <a href="/admin/users" class="inline-flex items-center gap-1.5 mt-3 border border-slate-300 px-4 py-2 rounded-xl text-sm font-semibold text-studio-navy hover:bg-slate-50">
+        <i class="bx bx-reset"></i> Clear filters
+      </a>
+    <% } %>
   </div>
 <% } else { %>
   <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -68,7 +73,9 @@
             </td>
             <td class="px-4 py-3 hidden sm:table-cell text-slate-500"><%= u.karya_count %></td>
             <td class="px-4 py-3">
-              <% if (u.role === "admin") { %>
+              <% if (u.role === "superadmin") { %>
+                <span class="text-[11px] font-bold uppercase bg-amber-400 text-studio-navy px-2 py-0.5 rounded-full">super</span>
+              <% } else if (u.role === "admin") { %>
                 <span class="text-[11px] font-bold uppercase bg-studio-navy text-white px-2 py-0.5 rounded-full">admin</span>
               <% } else { %>
                 <span class="text-[11px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">member</span>
@@ -88,5 +95,6 @@
         <% }) %>
       </tbody>
     </table>
+    <%~ include("/partials/admin-pagination", { base: "/admin/users", meta: it.meta, filters: { status: it.aktif, q: it.q } }) %>
   </div>
 <% } %>

@@ -87,8 +87,8 @@ export class KaryaModel {
       .all(userId);
   }
 
-  /** Admin list: every karya regardless of status, with author + like count. */
-  listForAdmin(filter?: { status?: string; q?: string }) {
+  /** Shared WHERE builder for the admin list + count (keeps them in sync). */
+  private adminFilter(filter?: { status?: string; q?: string }) {
     const where: string[] = [];
     const params: string[] = [];
     if (filter?.status) {
@@ -99,7 +99,12 @@ export class KaryaModel {
       where.push("(k.judul LIKE ? OR u.username LIKE ?)");
       params.push(`%${filter.q}%`, `%${filter.q}%`);
     }
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    return { whereSql: where.length ? `WHERE ${where.join(" AND ")}` : "", params };
+  }
+
+  /** Admin list: every karya regardless of status, with author + like count. */
+  listForAdmin(filter?: { status?: string; q?: string }) {
+    const { whereSql, params } = this.adminFilter(filter);
     return this.db
       .query(
         `SELECT k.*, u.username, u.status AS author_status,
@@ -112,6 +117,38 @@ export class KaryaModel {
          ORDER BY k.created_at DESC`
       )
       .all(...params) as Array<Record<string, unknown>>;
+  }
+
+  /** Same as listForAdmin but paginated (admin works table). */
+  listForAdminPage(filter: { status?: string; q?: string }, limit: number, offset: number) {
+    const { whereSql, params } = this.adminFilter(filter);
+    return this.db
+      .query(
+        `SELECT k.*, u.username, u.status AS author_status,
+                COUNT(l.user_id) AS like_count
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         LEFT JOIN likes l ON l.karya_id = k.id
+         ${whereSql}
+         GROUP BY k.id
+         ORDER BY k.created_at DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset) as Array<Record<string, unknown>>;
+  }
+
+  /** Total rows matching the admin filter (for the pager). */
+  countForAdmin(filter?: { status?: string; q?: string }): number {
+    const { whereSql, params } = this.adminFilter(filter);
+    const row = this.db
+      .query(
+        `SELECT COUNT(*) AS n
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         ${whereSql}`
+      )
+      .get(...params) as { n: number } | null;
+    return row?.n ?? 0;
   }
 
   /** Soft delete: hide a work from the public site but keep the data. */

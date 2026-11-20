@@ -28,13 +28,54 @@ export function adminController(db: Db) {
 
   app.use("*", requireAdmin(db));
 
-  /** Guard: an admin must never lock themselves out of their own account. */
-  function selfGuard(c: Context<AppEnv>, targetId: string) {
-    if (targetId === c.get("userId")) {
-      flashError(c, "You cannot moderate your own account.");
-      return false;
+  /** Role of the admin performing the request. */
+  function actorRole(c: Context<AppEnv>): "admin" | "superadmin" {
+    return users.isSuperAdmin(c.get("userId") as string) ? "superadmin" : "admin";
+  }
+
+  /**
+   * Who may moderate whom:
+   *   - nobody touches their own account
+   *   - a superadmin can act on members and admins
+   *   - an admin can act on members only
+   *   - a superadmin account can never be touched from the panel (CLI only)
+   */
+  function canActOn(
+    c: Context<AppEnv>,
+    target: { id: string; role: "member" | "admin" | "superadmin" }
+  ): { ok: true } | { ok: false; message: string } {
+    if (target.id === c.get("userId")) {
+      return { ok: false, message: "You cannot moderate your own account." };
     }
-    return true;
+    if (target.role === "superadmin") {
+      return {
+        ok: false,
+        message: "Superadmin accounts can only be changed from the CLI (bun run admin:revoke).",
+      };
+    }
+    if (target.role === "admin" && actorRole(c) !== "superadmin") {
+      return { ok: false, message: "Only a superadmin can moderate another admin." };
+    }
+    return { ok: true };
+  }
+
+  /** Rows per page in the admin tables (kept small enough to scan). */
+  const PER_PAGE = 12;
+
+  /** Parse ?page= safely and clamp it to the available range. */
+  function pager(c: Context<AppEnv>, total: number) {
+    const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+    const raw = Number.parseInt(c.req.query("page") ?? "1", 10);
+    const page = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), pages) : 1;
+    return {
+      page,
+      pages,
+      total,
+      perPage: PER_PAGE,
+      offset: (page - 1) * PER_PAGE,
+      from: total === 0 ? 0 : (page - 1) * PER_PAGE + 1,
+      to: Math.min(page * PER_PAGE, total),
+    };
   }
 
   // GET /admin — dashboard
@@ -51,6 +92,7 @@ export function adminController(db: Db) {
     };
     return view(c, "admin/dashboard", {
       counts,
+      actorRole: actorRole(c),
       recentLog: log.recent(8),
       recentTakedowns: allKarya.filter((k) => k.status === "taken_down").slice(0, 5),
     });
@@ -60,14 +102,17 @@ export function adminController(db: Db) {
   app.get("/works", (c) => {
     const status = c.req.query("status") ?? "";
     const q = c.req.query("q")?.trim() ?? "";
-    const rows = karya.listForAdmin({
+    const filter = {
       status: status === "taken_down" || status === "published" ? status : undefined,
       q: q || undefined,
-    });
+    };
+    const meta = pager(c, karya.countForAdmin(filter));
+    const rows = karya.listForAdminPage(filter, PER_PAGE, meta.offset);
     return view(c, "admin/works/index", {
       karya: rows,
       aktif: status,
       q,
+      meta,
     });
   });
 
@@ -140,11 +185,19 @@ export function adminController(db: Db) {
   app.get("/users", (c) => {
     const status = c.req.query("status") ?? "";
     const q = c.req.query("q")?.trim() ?? "";
-    const rows = users.listForAdmin({
+    const filter = {
       status: status === "active" || status === "suspended" ? (status as UserStatus) : undefined,
       q: q || undefined,
+    };
+    const meta = pager(c, users.countForAdmin(filter));
+    const rows = users.listForAdminPage(filter, PER_PAGE, meta.offset);
+    return view(c, "admin/users/index", {
+      users: rows,
+      aktif: status,
+      q,
+      meta,
+      actorRole: actorRole(c),
     });
-    return view(c, "admin/users/index", { users: rows, aktif: status, q });
   });
 
   // GET /admin/users/:id — account detail + moderation panel
@@ -156,6 +209,7 @@ export function adminController(db: Db) {
     }
     return view(c, "admin/users/show", {
       target,
+      actorRole: actorRole(c),
       isSelf: target.id === c.get("userId"),
       works: karya.listForAdmin().filter((k) => k.user_id === target.id),
       history: log.forTarget("user", target.id),
@@ -165,11 +219,15 @@ export function adminController(db: Db) {
   // POST /admin/users/:id/suspend — deactivate + kill all sessions
   app.post("/users/:id/suspend", async (c) => {
     const id = c.req.param("id")!;
-    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
     const target = users.findForAdmin(id);
     if (!target) {
       flashError(c, "User not found.");
       return redirect(c, "/admin/users");
+    }
+    const allowed = canActOn(c, target);
+    if (!allowed.ok) {
+      flashError(c, allowed.message);
+      return redirect(c, `/admin/users/${id}`);
     }
     const body = await c.req.parseBody();
     const reason = String(body.reason ?? "").trim();
@@ -194,11 +252,15 @@ export function adminController(db: Db) {
   // POST /admin/users/:id/reactivate
   app.post("/users/:id/reactivate", (c) => {
     const id = c.req.param("id")!;
-    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
     const target = users.findForAdmin(id);
     if (!target) {
       flashError(c, "User not found.");
       return redirect(c, "/admin/users");
+    }
+    const allowed = canActOn(c, target);
+    if (!allowed.ok) {
+      flashError(c, allowed.message);
+      return redirect(c, `/admin/users/${id}`);
     }
     users.reactivate(id);
     log.log({
@@ -211,14 +273,25 @@ export function adminController(db: Db) {
     return redirect(c, `/admin/users/${id}`);
   });
 
-  // POST /admin/users/:id/role — promote / demote
+  // POST /admin/users/:id/role — superadmin only
   app.post("/users/:id/role", async (c) => {
     const id = c.req.param("id")!;
-    if (!selfGuard(c, id)) return redirect(c, `/admin/users/${id}`);
     const target = users.findForAdmin(id);
     if (!target) {
       flashError(c, "User not found.");
       return redirect(c, "/admin/users");
+    }
+    if (id === c.get("userId")) {
+      flashError(c, "You cannot change your own role.");
+      return redirect(c, `/admin/users/${id}`);
+    }
+    if (actorRole(c) !== "superadmin") {
+      flashError(c, "Only a superadmin can change roles.");
+      return redirect(c, `/admin/users/${id}`);
+    }
+    if (target.role === "superadmin") {
+      flashError(c, "Superadmin accounts can only be changed from the CLI (bun run admin:revoke).");
+      return redirect(c, `/admin/users/${id}`);
     }
     const body = await c.req.parseBody();
     const role = String(body.role ?? "");
@@ -240,8 +313,25 @@ export function adminController(db: Db) {
     return redirect(c, `/admin/users/${id}`);
   });
 
-  // GET /admin/log — audit trail
-  app.get("/log", (c) => view(c, "admin/log", { entries: log.recent(200) }));
+  // GET /admin/log — audit trail (paginated, filter by admin & action)
+  app.get("/log", (c) => {
+    const adminFilter = c.req.query("admin") ?? "";
+    const action = c.req.query("action") ?? "";
+    const filter = {
+      admin: adminFilter || undefined,
+      action: action || undefined,
+    };
+    const meta = pager(c, log.count(filter));
+    const entries = log.list(filter, PER_PAGE, meta.offset);
+    return view(c, "admin/log", {
+      entries,
+      meta,
+      aktifAdmin: adminFilter,
+      aktifAction: action,
+      adminOptions: log.adminOptions(),
+      actionOptions: log.actionOptions(),
+    });
+  });
 
   return app;
 }

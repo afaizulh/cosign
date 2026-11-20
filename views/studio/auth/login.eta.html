@@ -5,6 +5,7 @@
 <p class="text-sm text-slate-300 text-center mt-1 mb-6">Sign in to open your studio.</p>
 <%~ include("/partials/errors", { errors: it.errors }) %>
 <form method="post" action="/studio/login" class="bg-white rounded-2xl p-6 space-y-4 shadow-xl">
+  <% if (it.next) { %><input type="hidden" name="next" value="<%= it.next %>" /><% } %>
   <div>
     <label for="username" class="block text-sm font-medium mb-1">Username</label>
     <div class="relative">

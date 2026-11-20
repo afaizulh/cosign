@@ -4,18 +4,27 @@ import { migrate } from "../src/db";
 import { UserModel } from "../src/models/user.model";
 
 /**
- * Grant (or revoke) the admin role from the command line.
+ * Manage privileged roles from the command line.
  *
- *   bun run admin:grant <username>     → promote to admin
- *   bun run admin:revoke <username>    → demote to member
+ *   bun run admin:grant <username>       → admin
+ *   bun run superadmin:grant <username>  → superadmin (highest role)
+ *   bun run admin:revoke <username>      → member
  *
- * The first admin has to be created this way: there is no self-service path,
- * which keeps a public deploy from bootstrapping an admin by accident.
+ * Privileged accounts can only be created/removed here — there is no
+ * self-service path, and a superadmin account cannot be changed from the
+ * admin panel at all.
  */
 const [command, username] = process.argv.slice(2);
 
-if (!username || !command || !["grant", "revoke"].includes(command)) {
-  console.error("Usage: bun run admin:grant <username> | bun run admin:revoke <username>");
+const USAGE = [
+  "Usage:",
+  "  bun run admin:grant <username>       → role admin",
+  "  bun run superadmin:grant <username>  → role superadmin",
+  "  bun run admin:revoke <username>      → role member",
+].join("\n");
+
+if (!username || !command || !["grant", "revoke", "superadmin"].includes(command)) {
+  console.error(USAGE);
   process.exit(1);
 }
 
@@ -30,7 +39,7 @@ if (!id) {
   process.exit(1);
 }
 
-const role = command === "grant" ? "admin" : "member";
+const role = command === "grant" ? "admin" : command === "superadmin" ? "superadmin" : "member";
 users.setRole(id, role);
 console.log(`✔ @${username} is now ${role}.`);
 db.close();

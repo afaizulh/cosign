@@ -1,16 +1,53 @@
 <% layout("/layouts/admin") %>
 <% it.title = "Activity log — CoSign Admin"; it.active = "log"; %>
 
-<div class="mb-5">
-  <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Activity log</h1>
-  <p class="text-sm text-slate-500 mt-0.5">Every moderation action, newest first. Append-only — nothing here can be edited.</p>
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">Activity log</h1>
+    <p class="text-sm text-slate-500 mt-0.5">Every moderation action, newest first. Append-only — nothing here can be edited.</p>
+  </div>
+
+  <form method="get" action="/admin/log" class="flex flex-wrap items-end gap-2">
+    <div>
+      <label for="admin" class="block text-xs font-semibold text-slate-500 mb-1">Admin</label>
+      <select id="admin" name="admin"
+        class="border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white min-w-[10rem]">
+        <option value="">All admins</option>
+        <% it.adminOptions.forEach(function (username) { %>
+          <option value="<%= username %>" <%= it.aktifAdmin === username ? "selected" : "" %>>@<%= username %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div>
+      <label for="action" class="block text-xs font-semibold text-slate-500 mb-1">Action</label>
+      <select id="action" name="action"
+        class="border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white min-w-[10rem]">
+        <option value="">All actions</option>
+        <% it.actionOptions.forEach(function (a) { %>
+          <option value="<%= a %>" <%= it.aktifAction === a ? "selected" : "" %>><%= a %></option>
+        <% }) %>
+      </select>
+    </div>
+    <button type="submit" class="bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep">
+      <i class="bx bx-filter-alt"></i> Filter
+    </button>
+    <% if (it.aktifAdmin || it.aktifAction) { %>
+      <a href="/admin/log" class="border border-slate-300 px-4 py-2 rounded-xl text-sm font-semibold text-studio-navy hover:bg-slate-50">
+        <i class="bx bx-reset"></i> Clear
+      </a>
+    <% } %>
+  </form>
 </div>
 
 <% if (it.entries.length === 0) { %>
   <div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 text-center">
     <i class="bx bx-history text-3xl text-slate-300"></i>
-    <p class="font-bold text-studio-navy mt-2">No admin actions yet.</p>
-    <p class="text-sm text-slate-500 mt-1">Take down a work or suspend an account to start the trail.</p>
+    <p class="font-bold text-studio-navy mt-2">
+      <%= (it.aktifAdmin || it.aktifAction) ? "No activity matches these filters." : "No admin actions yet." %>
+    </p>
+    <p class="text-sm text-slate-500 mt-1">
+      <%= (it.aktifAdmin || it.aktifAction) ? "Try another admin or action." : "Take down a work or suspend an account to start the trail." %>
+    </p>
   </div>
 <% } else { %>
   <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -29,11 +66,14 @@
           <% const bad = e.action.indexOf("takedown") !== -1 || e.action === "user.suspend" || e.action === "user.demote"; %>
           <tr class="hover:bg-slate-50/70">
             <td class="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap"><%= e.created_at %></td>
-            <td class="px-4 py-2.5 font-semibold text-studio-navy">@<%= e.admin_username %></td>
+            <td class="px-4 py-2.5 font-semibold text-studio-navy">
+              <a href="/admin/log?admin=<%= encodeURIComponent(e.admin_username) %>" class="hover:underline">@<%= e.admin_username %></a>
+            </td>
             <td class="px-4 py-2.5">
-              <span class="inline-flex items-center gap-1 text-xs font-bold <%= bad ? 'text-red-600' : 'text-emerald-600' %>">
+              <a href="/admin/log?action=<%= encodeURIComponent(e.action) %>"
+                class="inline-flex items-center gap-1 text-xs font-bold <%= bad ? 'text-red-600' : 'text-emerald-600' %> hover:underline">
                 <i class="bx <%= bad ? 'bx-block' : 'bx-check-circle' %>"></i> <%= e.action %>
-              </span>
+              </a>
             </td>
             <td class="px-4 py-2.5 hidden sm:table-cell text-xs text-slate-500">
               <% if (e.target_type === "karya") { %>
@@ -47,5 +87,6 @@
         <% }) %>
       </tbody>
     </table>
+    <%~ include("/partials/admin-pagination", { base: "/admin/log", meta: it.meta, filters: { admin: it.aktifAdmin, action: it.aktifAction } }) %>
   </div>
 <% } %>
