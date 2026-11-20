@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500" role="img" aria-label="Placeholder pattern">
+  <rect width="400" height="500" fill="#faf9f6"/>
+  <g fill="none" stroke-width="14">
+    <circle cx="200" cy="250" r="170" stroke="#fdf3d7"/>
+    <circle cx="200" cy="250" r="130" stroke="#2c3a5c" opacity="0.9"/>
+    <circle cx="200" cy="250" r="90" stroke="#e8a100"/>
+    <circle cx="200" cy="250" r="50" stroke="#1f2a44"/>
+  </g>
+</svg>

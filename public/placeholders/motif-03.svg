@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500" role="img" aria-label="Placeholder pattern">
+  <rect width="400" height="500" fill="#faf9f6"/>
+  <g fill="#1f2a44" opacity="0.85">
+    <rect x="50" y="60" width="70" height="70" rx="14"/>
+    <rect x="165" y="60" width="70" height="70" rx="35"/>
+    <rect x="280" y="60" width="70" height="70" rx="14"/>
+    <rect x="50" y="175" width="70" height="70" rx="35"/>
+    <rect x="165" y="175" width="70" height="70" rx="14"/>
+    <rect x="280" y="175" width="70" height="70" rx="35"/>
+  </g>
+  <g fill="#e8a100">
+    <rect x="50" y="290" width="70" height="70" rx="14"/>
+    <rect x="165" y="290" width="70" height="70" rx="35"/>
+    <rect x="280" y="290" width="70" height="70" rx="14"/>
+  </g>
+</svg>
