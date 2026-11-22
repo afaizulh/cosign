@@ -336,6 +336,20 @@ export class KaryaModel {
     return map;
   }
 
+  /** First (newest) 3D asset per karya in one query, keyed by karya_id. */
+  firstAssetsForMany(karyaIds: string[]): Record<string, KaryaAsset> {
+    const map: Record<string, KaryaAsset> = {};
+    if (karyaIds.length === 0) return map;
+    const placeholders = karyaIds.map(() => "?").join(",");
+    const rows = this.db
+      .query(
+        `SELECT * FROM karya_assets WHERE karya_id IN (${placeholders}) ORDER BY karya_id, created_at DESC, id DESC`
+      )
+      .all(...karyaIds) as KaryaAsset[];
+    for (const a of rows) if (!map[a.karya_id]) map[a.karya_id] = a;
+    return map;
+  }
+
   /** 3D asset counts for many karya in one query, keyed by karya_id. */
   assetCountsForMany(karyaIds: string[]): Record<string, number> {
     const map: Record<string, number> = {};

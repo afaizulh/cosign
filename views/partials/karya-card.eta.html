@@ -1,6 +1,7 @@
 <% /* Layered composition card — used in explore & profile grids. Data: it.k = { judul, username, kategori, like_count, tipe, parts: { head, body, background } } */ %>
 <% const k = it.k;
    const parts = k.parts || {};
+   const up = function (p) { return "/uploads/" + String(p || "").replace(/^uploads\//, ""); };
    const empty = k.tipe !== "3d" && !parts.head && !parts.body && !parts.background;
    const initial = String(k.username || "?").charAt(0).toUpperCase(); %>
 <a href="/karya/<%= k.id %>" class="group block focus:outline-none focus-visible:ring-4 focus-visible:ring-studio-gold/40 rounded-2xl">
@@ -8,20 +9,31 @@
     <div class="absolute inset-0 bg-gradient-to-br from-studio-gold-soft to-studio-paper"></div>
 
     <% if (parts.background) { %>
-      <img src="/uploads/<%= parts.background %>" alt="" loading="lazy"
+      <img src="<%= up(parts.background) %>" alt="" loading="lazy"
         class="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
     <% if (parts.body) { %>
-      <img src="/uploads/<%= parts.body %>" alt="" loading="lazy"
+      <img src="<%= up(parts.body) %>" alt="" loading="lazy"
         class="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
     <% if (parts.head) { %>
-      <img src="/uploads/<%= parts.head %>" alt="" loading="lazy"
+      <img src="<%= up(parts.head) %>" alt="" loading="lazy"
         class="absolute top-[8%] left-1/2 -translate-x-1/2 w-2/5 object-contain drop-shadow-sm transition duration-500 group-hover:scale-[1.04]" />
     <% } %>
 
     <% if (k.tipe === "3d") { %>
-      <%~ include("/partials/placeholder", { seed: String(k.user_id || k.id) + "-3d", badge: "3D", label: "No thumbnail" }) %>
+      <% if (k.asset) { %>
+        <% const ext = String(k.asset.media_path).split(".").pop().toLowerCase(); %>
+        <div class="absolute inset-0" data-model-preview data-src="<%= up(k.asset.media_path) %>"
+          data-ext="<%= ext %>" data-name="<%= k.asset.nama || 'model' %>">
+          <div data-preview-fallback class="absolute inset-0 flex flex-col items-center justify-center gap-1 text-studio-navy/60">
+            <i class="bx bx-cube text-3xl"></i>
+            <span class="text-[11px] font-semibold uppercase tracking-wider">Loading 3D…</span>
+          </div>
+        </div>
+      <% } else { %>
+        <%~ include("/partials/placeholder", { seed: String(k.user_id || k.id) + "-3d", badge: "3D", label: "No thumbnail" }) %>
+      <% } %>
     <% } else if (empty) { %>
       <%~ include("/partials/placeholder", { seed: String(k.user_id || k.id), label: "No thumbnail" }) %>
     <% } %>
@@ -29,6 +41,12 @@
     <% if (k.kategori) { %>
       <span class="absolute top-2.5 left-2.5 bg-white/85 backdrop-blur px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-studio-navy">
         <%= k.kategori %>
+      </span>
+    <% } %>
+
+    <% if (k.tipe === "3d" && k.asset_count > 0) { %>
+      <span class="absolute top-2.5 right-2.5 bg-studio-navy/80 text-white backdrop-blur px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+        3D · <%= k.asset_count %>
       </span>
     <% } %>
 
