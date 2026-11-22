@@ -567,6 +567,18 @@ describe("Web — karya 3D", () => {
     const pub = await (await app.request(`/karya/${karyaId}`)).text();
     expect(pub).toContain("3D assets");
     expect(pub).toContain("Main model");
+    expect(pub).toContain('id="viewer3d"');
+    expect(pub).toContain("data-viewer-asset");
+    expect(pub).toContain("/viewer3d.js");
+    expect(pub).toContain("three@0.170.0");
+
+    // Explore card renders a live 3D preview target pointing at the asset.
+    const home = await (await app.request("/")).text();
+    expect(home).toContain("data-model-preview");
+    expect(home).toContain(`data-src="/uploads/${file}"`);
+    expect(home).toContain('data-ext="glb"');
+    expect(home).toContain("/model-preview.js");
+    expect(home).not.toContain("/uploads/uploads/");
 
     const assetId = page.match(/\/3d\/([0-9a-f-]+)\/delete/)?.[1];
     expect(assetId).toBeTruthy();
@@ -577,6 +589,40 @@ describe("Web — karya 3D", () => {
     expect(del.status).toBe(302);
     expect(() => unlinkSync(`uploads/${file}`)).toThrow();
 
+    await app.request(`/studio/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+    });
+  });
+
+  test("upload multiple 3D assets in one submit → all listed", async () => {
+    const app = createTestApp();
+    const cookie = await registerUser(app);
+    const { loc, karyaId } = await create3d(app, cookie);
+
+    const form = new FormData();
+    form.append("media", GLB);
+    form.append("media", new File(["solid"], "model.stl", { type: "model/stl" }));
+    const up = await app.request(`/studio/karya/${karyaId}/3d`, {
+      method: "POST",
+      headers: { cookie, ...formHeaders },
+      body: form,
+    });
+    expect(up.status).toBe(302);
+
+    const page = await (await app.request(loc, { headers: { cookie } })).text();
+    expect(page).toContain("model.glb");
+    expect(page).toContain("model.stl");
+
+    // Cleanup the two uploaded files + work.
+    for (const f of page.matchAll(/\/uploads\/([0-9a-f-]+\.(?:glb|stl))/g)) {
+      const path = `uploads/${f[1]}`;
+      try {
+        unlinkSync(path);
+      } catch {
+        // ignore
+      }
+    }
     await app.request(`/studio/karya/${karyaId}/delete`, {
       method: "POST",
       headers: { cookie, ...formHeaders },
@@ -979,7 +1025,7 @@ describe("Web — regression (bug #16 coverage)", () => {
 
   // Each test below documents a coverage gap found in #16. They are skipped because
   // the underlying bug is owned by another developer — flip to `test(` once fixed.
-  test.skip("bug #3: homepage & profile card points at /uploads/<file>, never /uploads/uploads/", async () => {
+  test("bug #3: homepage & profile card points at /uploads/<file>, never /uploads/uploads/", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);
     const { karyaId, file } = await seedKarya(app, cookie, "Kartu");

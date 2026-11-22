@@ -1,7 +1,8 @@
 <% layout("/layouts/homepage") %>
 <% it.title = it.karya.judul + " — CoSign" %>
+<% const up = function (p) { return "/uploads/" + String(p || "").replace(/^uploads\//, ""); }; %>
 
-<div class="max-w-3xl mx-auto">
+<div class="max-w-5xl mx-auto">
   <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
     <div>
       <h1 class="text-2xl font-bold"><%= it.karya.judul %></h1>
@@ -27,20 +28,67 @@
     <% } %>
   </div>
 
-  <section class="bg-white border border-slate-200 rounded-xl p-5">
-    <h2 class="font-semibold mb-3">3D assets</h2>
-    <% if (it.assets.length === 0) { %>
-      <p class="text-sm text-slate-400">No 3D assets uploaded yet.</p>
-    <% } else { %>
-      <ul class="divide-y divide-slate-100">
-        <% it.assets.forEach(function (a) { %>
-          <li class="flex items-center justify-between gap-3 py-3">
-            <p class="font-medium text-sm truncate"><%= a.nama || "Untitled asset" %></p>
-            <a href="/uploads/<%= a.media_path.replace(/^uploads\//, '') %>" download
-              class="text-sm text-indigo-600 hover:underline">Download</a>
-          </li>
-        <% }) %>
-      </ul>
-    <% } %>
-  </section>
+  <div class="grid lg:grid-cols-[1fr_18rem] gap-5">
+    <section class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+      <div id="viewer3d" class="relative aspect-[4/3] sm:aspect-video bg-slate-900 touch-none select-none">
+        <% if (it.assets.length === 0) { %>
+          <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <i class="bx bx-cube text-5xl"></i>
+            <p class="text-sm">No 3D assets uploaded yet.</p>
+          </div>
+        <% } else { %>
+          <div class="absolute top-3 right-3 z-10 flex items-center gap-1.5" role="toolbar" aria-label="3D viewer controls">
+            <button type="button" id="viewer-reset" title="Reset view" aria-label="Reset view"
+              class="w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 flex items-center justify-center backdrop-blur"><i class="bx bx-reset text-xl"></i></button>
+            <button type="button" id="viewer-autorotate" title="Toggle auto-rotate" aria-label="Toggle auto-rotate" aria-pressed="false"
+              class="w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 flex items-center justify-center backdrop-blur"><i class="bx bx-rotate-ccw text-xl"></i></button>
+            <button type="button" id="viewer-wireframe" title="Toggle wireframe" aria-label="Toggle wireframe" aria-pressed="false"
+              class="w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 flex items-center justify-center backdrop-blur"><i class="bx bx-grid-alt text-xl"></i></button>
+            <button type="button" id="viewer-fullscreen" title="Fullscreen" aria-label="Fullscreen"
+              class="w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 flex items-center justify-center backdrop-blur"><i class="bx bx-expand text-xl"></i></button>
+          </div>
+          <div id="viewer-loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-900/80 text-white">
+            <span class="w-8 h-8 rounded-full border-2 border-white/30 border-t-white animate-spin"></span>
+            <p id="viewer-loading-text" class="text-sm">Loading 3D model…</p>
+          </div>
+          <div id="viewer-error" class="hidden absolute inset-x-4 top-1/2 -translate-y-1/2 z-10 bg-rose-600/95 text-white text-sm rounded-xl px-4 py-3 text-center"></div>
+          <p class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 text-[11px] text-white/60 whitespace-nowrap pointer-events-none">
+            Drag to rotate · Scroll / pinch to zoom · Right-drag to pan
+          </p>
+        <% } %>
+      </div>
+    </section>
+
+    <aside class="bg-white border border-slate-200 rounded-2xl p-4">
+      <h2 class="font-semibold mb-3 flex items-center gap-1.5"><i class="bx bx-cube text-lg text-indigo-600"></i> 3D assets</h2>
+      <% if (it.assets.length === 0) { %>
+        <p class="text-sm text-slate-400">No 3D assets uploaded yet.</p>
+      <% } else { %>
+        <ul class="space-y-2">
+          <% it.assets.forEach(function (a, i) { %>
+            <% const src = up(a.media_path); const ext = String(a.media_path).split(".").pop().toLowerCase(); %>
+            <li>
+              <button type="button" id="asset-<%= a.id %>" data-viewer-asset data-src="<%= src %>" data-ext="<%= ext %>"
+                data-name="<%= a.nama || 'Untitled asset' %>"
+                class="viewer-asset w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl border <%= i === 0 ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50' %>">
+                <span class="w-8 h-8 rounded-lg bg-slate-100 text-indigo-600 flex items-center justify-center shrink-0"><i class="bx bx-cube text-lg"></i></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium truncate"><%= a.nama || "Untitled asset" %></span>
+                  <span class="block text-[11px] text-slate-400 uppercase"><%= ext %></span>
+                </span>
+              </button>
+            </li>
+          <% }) %>
+        </ul>
+        <div class="mt-3 pt-3 border-t border-slate-100 text-xs">
+          <a id="viewer-download" href="<%= up(it.assets[0].media_path) %>" download
+            class="inline-flex items-center gap-1 text-indigo-600 font-semibold hover:underline"><i class="bx bx-download"></i> Download model</a>
+        </div>
+      <% } %>
+    </aside>
+  </div>
 </div>
+
+<% if (it.assets.length > 0) { %>
+  <script type="module" src="/viewer3d.js"></script>
+<% } %>
