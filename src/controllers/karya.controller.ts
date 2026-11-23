@@ -5,7 +5,8 @@ import { unlinkSync, existsSync } from "fs";
 import type { Db } from "../db";
 import { KaryaModel } from "../models/karya.model";
 import { CommentModel } from "../models/comment.model";
-import { requireAuth } from "../middleware/auth.middleware";
+import { requireAuth, getUserId } from "../middleware/auth.middleware";
+import { UserModel } from "../models/user.model";
 import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 import { partsByCategory, latestParts } from "../composition";
 import { saveImage, MAX_UPLOAD_BODY } from "../uploads";
@@ -24,7 +25,8 @@ function normalizePart(raw: unknown): string {
 }
 export const TIPE_LIST = ["2d", "3d"];
 const ASSET_EXTS = ["glb", "gltf", "obj", "fbx", "stl", "usdz"];
-const MAX_ASSET_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_ASSET_SIZE = 50 * 1024 * 1024; // 50MB per file
+const MAX_ASSET_BODY = MAX_ASSET_SIZE * 5 + 1024 * 1024; // up to 5 files per submit
 const UPLOAD_DIR = "uploads"; // must stay in sync with serveStatic /uploads/* in app.ts
 
 function isOwner(item: { user_id: string }, userId: string) {
@@ -39,10 +41,26 @@ function saveAsset(
   if (!ASSET_EXTS.includes(ext)) {
     return { ok: false, error: "Only 3D files are allowed (GLB, GLTF, OBJ, FBX, STL, USDZ)." };
   }
+  if (file.size === 0) {
+    return { ok: false, error: "The 3D file is empty." };
+  }
   if (file.size > MAX_ASSET_SIZE) {
     return { ok: false, error: "3D file size limit is 50MB." };
   }
   return { ok: true, path: `${UPLOAD_DIR}/${randomUUID()}.${ext}`, ext };
+}
+
+/** parseBody returns File or File[] for a repeated field — normalise to an array. */
+function fileList(value: unknown): File[] {
+  if (value instanceof File) return [value];
+  if (Array.isArray(value)) return value.filter((f): f is File => f instanceof File);
+  return [];
+}
+
+/** First value of a field that parseBody({ all: true }) may return as an array. */
+function firstString(value: unknown): string {
+  const v = Array.isArray(value) ? value[0] : value;
+  return String(v ?? "").trim();
 }
 /**
  * Admin controller (mounted at /studio): manage karya & parts.
@@ -181,8 +199,18 @@ export function karyaAdminController(db: Db) {
     });
   });
 
-  // POST /studio/karya/:id/3d — upload a 3D asset
-  app.post("/karya/:id/3d", requireAuth(db), async (c) => {
+  // POST /studio/karya/:id/3d — upload one or more 3D assets
+  app.post(
+    "/karya/:id/3d",
+    requireAuth(db),
+    bodyLimit({
+      maxSize: MAX_ASSET_BODY,
+      onError: (c) => {
+        flashError(c, "Upload too large. Max 50MB per file.");
+        return redirect(c, `/studio/karya/${c.req.param("id")!}/3d`);
+      },
+    }),
+    async (c) => {
     const id = c.req.param("id")!;
     const item = karya.findById(id);
     if (!item || !isOwner(item, c.get("userId") as string)) {
@@ -192,31 +220,43 @@ export function karyaAdminController(db: Db) {
     if (item.tipe !== "3d") {
       return redirect(c, `/studio/karya/${item.id}`);
     }
-    const body = await c.req.parseBody();
-    const nama = String(body.nama ?? "").trim();
-    const file = body.media;
+    const body = await c.req.parseBody({ all: true });
+    const nama = firstString(body.nama);
+    const files = fileList(body.media);
 
-    if (!(file instanceof File)) {
+    if (files.length === 0) {
       flashError(c, "Choose a 3D file to upload.");
       return redirect(c, `/studio/karya/${id}/3d`);
     }
-    const saved = saveAsset(file);
-    if (!saved.ok) {
-      flashError(c, saved.error);
-      return redirect(c, `/studio/karya/${id}/3d`);
+
+    let added = 0;
+    const errors: string[] = [];
+    for (const file of files) {
+      const saved = saveAsset(file);
+      if (!saved.ok) {
+        errors.push(`${file.name}: ${saved.error}`);
+        continue;
+      }
+      await Bun.write(saved.path, file);
+      if (!existsSync(saved.path)) {
+        errors.push(`${file.name}: failed to save on the server.`);
+        continue;
+      }
+      karya.addAsset({
+        karyaId: id,
+        nama: files.length === 1 && nama ? nama : file.name,
+        mediaPath: saved.path,
+        mediaType: file.type || saved.ext,
+      });
+      added++;
     }
-    await Bun.write(saved.path, file);
-    if (!existsSync(saved.path)) {
-      flashError(c, "Failed to save the file on the server.");
-      return redirect(c, `/studio/karya/${id}/3d`);
+
+    if (errors.length > 0) {
+      const prefix = added > 0 ? `${added} asset(s) uploaded. ` : "";
+      flashError(c, prefix + errors.join(" "));
+    } else if (added > 0) {
+      flashSuccess(c, added === 1 ? "3D asset uploaded." : `${added} 3D assets uploaded.`);
     }
-    karya.addAsset({
-      karyaId: id,
-      nama: nama || file.name,
-      mediaPath: saved.path,
-      mediaType: file.type || saved.ext,
-    });
-    flashSuccess(c, "3D asset uploaded.");
     return redirect(c, `/studio/karya/${id}/3d`);
   });
 
@@ -389,6 +429,15 @@ export function karyaPublicController(db: Db) {
     const item = karya.findById(c.req.param("id")!);
     if (!item) {
       flashError(c, "Work not found.");
+      return redirect(c, "/");
+    }
+    // Moderation: a taken-down work is invisible unless you own it (you get a
+    // banner) or you are an admin reviewing it.
+    const viewer = getUserId(c, db);
+    const viewerIsOwner = viewer === item.user_id;
+    const viewerIsAdmin = viewer ? new UserModel(db.sqlite!).isAdmin(viewer) : false;
+    if ((item as { status?: string }).status === "taken_down" && !viewerIsOwner && !viewerIsAdmin) {
+      flashError(c, "This work is not available.");
       return redirect(c, "/");
     }
     const user = c.get("user" as never) as { id: string } | null;

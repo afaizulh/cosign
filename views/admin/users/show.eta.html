@@ -1,0 +1,132 @@
+<% layout("/layouts/admin") %>
+<% it.title = "User — CoSign Admin"; it.active = "users"; %>
+<% const u = it.target; const suspended = u.status === "suspended"; %>
+
+<div class="mb-5">
+  <a href="/admin/users" class="text-xs font-semibold text-slate-500 hover:text-studio-navy"><i class="bx bx-arrow-back"></i> Back to users</a>
+  <div class="flex flex-wrap items-center gap-3 mt-2">
+    <% if (u.avatar_path) { %>
+      <img src="/uploads/<%= u.avatar_path.replace(/^uploads\//, '') %>" alt="" class="w-14 h-14 rounded-2xl object-cover border-2 border-slate-200" />
+    <% } else { %>
+      <span class="w-14 h-14 rounded-2xl bg-studio-navy text-studio-gold text-xl font-extrabold flex items-center justify-center"><%= u.username.charAt(0).toUpperCase() %></span>
+    <% } %>
+    <div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">@<%= u.username %></h1>
+        <% if (u.role === "superadmin") { %>
+          <span class="text-[11px] font-bold uppercase bg-amber-400 text-studio-navy px-2 py-0.5 rounded-full">superadmin</span>
+        <% } else if (u.role === "admin") { %>
+          <span class="text-[11px] font-bold uppercase bg-studio-navy text-white px-2 py-0.5 rounded-full">admin</span>
+        <% } %>
+        <% if (suspended) { %>
+          <span class="text-[11px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">suspended</span>
+        <% } else { %>
+          <span class="text-[11px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">active</span>
+        <% } %>
+      </div>
+      <p class="text-sm text-slate-500"><%= u.full_name || "No full name" %> · joined <%= u.created_at %></p>
+    </div>
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-5 items-start">
+  <div class="space-y-5">
+    <!-- Account moderation -->
+    <section class="bg-white border border-slate-200 rounded-2xl p-5">
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-shield-quarter text-lg text-red-500"></i> Account moderation</h2>
+      <% if (it.isSelf) { %>
+        <p class="text-sm text-slate-500 flex items-center gap-1.5"><i class="bx bx-info-circle"></i> This is your own account — you cannot suspend or change your own role here.</p>
+      <% } else if (u.role === "superadmin") { %>
+        <p class="text-sm text-slate-500 flex items-center gap-1.5"><i class="bx bx-shield-quarter text-amber-500"></i> Superadmin accounts can only be changed from the CLI (<span class="font-mono text-xs">bun run admin:revoke &lt;username&gt;</span>).</p>
+      <% } else if (u.role === "admin" && it.actorRole !== "superadmin") { %>
+        <p class="text-sm text-slate-500 flex items-center gap-1.5"><i class="bx bx-lock-alt"></i> Only a superadmin can suspend another admin.</p>
+      <% } else if (suspended) { %>
+        <div class="bg-red-50 border border-red-200 rounded-xl p-3 mb-3">
+          <p class="text-sm text-red-800"><span class="font-bold">Suspended.</span> <%= u.suspended_reason || "no reason recorded" %></p>
+          <p class="text-xs text-red-600 mt-1">since <%= u.suspended_at %></p>
+        </div>
+        <form method="post" action="/admin/users/<%= u.id %>/reactivate">
+          <button type="submit" class="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700">
+            <i class="bx bx-user-check"></i> Reactivate account
+          </button>
+        </form>
+      <% } else { %>
+        <p class="text-sm text-slate-500 mb-3">Suspending signs the user out everywhere and hides their works from the public site. Reversible.</p>
+        <form method="post" action="/admin/users/<%= u.id %>/suspend" class="space-y-2">
+          <label for="reason" class="block text-sm font-medium">Reason (shown in the log)</label>
+          <textarea id="reason" name="reason" rows="2" required maxlength="500"
+            placeholder="e.g. Harassment in comments"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"></textarea>
+          <button type="submit" class="inline-flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700"
+            onclick="return confirm('Suspend this account?')">
+            <i class="bx bx-user-x"></i> Suspend account
+          </button>
+        </form>
+      <% } %>
+    </section>
+
+    <!-- Role -->
+    <section class="bg-white border border-slate-200 rounded-2xl p-5">
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-key text-lg text-studio-navy"></i> Role</h2>
+      <% if (it.isSelf) { %>
+        <p class="text-sm text-slate-500">You are signed in as <span class="font-semibold text-studio-navy"><%= it.actorRole %></span>. Your own role cannot be changed here.</p>
+      <% } else if (u.role === "superadmin") { %>
+        <p class="text-sm text-slate-500">Superadmin is the highest role and cannot be changed from the panel.</p>
+      <% } else if (it.actorRole !== "superadmin") { %>
+        <p class="text-sm text-slate-500 flex items-center gap-1.5"><i class="bx bx-lock-alt"></i> Only a superadmin can change roles.</p>
+      <% } else { %>
+        <form method="post" action="/admin/users/<%= u.id %>/role" class="flex items-center gap-2">
+          <select name="role" class="border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white">
+            <option value="member" <%= u.role === "member" ? "selected" : "" %>>Member</option>
+            <option value="admin" <%= u.role === "admin" ? "selected" : "" %>>Admin</option>
+          </select>
+          <button type="submit" class="bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep">Update role</button>
+        </form>
+        <p class="text-xs text-slate-400 mt-2">Admins moderate content and members. Only a superadmin can promote or demote another admin.</p>
+      <% } %>
+    </section>
+
+    <!-- History -->
+    <section class="bg-white border border-slate-200 rounded-2xl p-5">
+      <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3"><i class="bx bx-history text-lg text-studio-navy"></i> History for this account</h2>
+      <% if (it.history.length === 0) { %>
+        <p class="text-sm text-slate-400">No moderation actions.</p>
+      <% } else { %>
+        <ul class="space-y-2 text-xs text-slate-600">
+          <% it.history.forEach(function (e) { %>
+            <li><span class="font-semibold text-studio-navy">@<%= e.admin_username %></span> <%= e.action %>
+              <% if (e.reason) { %>— “<%= e.reason %>”<% } %>
+              <span class="block text-slate-400"><%= e.created_at %></span></li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+
+  <!-- Their works -->
+  <section class="bg-white border border-slate-200 rounded-2xl p-5">
+    <h2 class="text-lg font-bold text-studio-navy flex items-center gap-1.5 mb-3">
+      <i class="bx bx-collection text-lg text-studio-navy"></i> Works
+      <span class="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><%= it.works.length %></span>
+    </h2>
+    <% if (it.works.length === 0) { %>
+      <p class="text-sm text-slate-400">This user has no works.</p>
+    <% } else { %>
+      <ul class="divide-y divide-slate-100">
+        <% it.works.forEach(function (k) { %>
+          <li class="py-2.5 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <a href="/admin/works/<%= k.id %>" class="font-semibold text-sm text-studio-navy hover:underline truncate block"><%= k.judul %></a>
+              <p class="text-xs text-slate-500"><%= k.kategori %> · <%= k.like_count %> likes</p>
+            </div>
+            <% if (k.status === "taken_down") { %>
+              <span class="text-[10px] font-bold uppercase bg-red-100 text-red-700 px-1.5 py-0.5 rounded shrink-0">hidden</span>
+            <% } else { %>
+              <span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded shrink-0">live</span>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>

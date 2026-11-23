@@ -6,6 +6,7 @@ import {
   destroySession,
   redirectIfAuthenticated,
   requireAuth,
+  safeNext,
 } from "../middleware/auth.middleware";
 import { rateLimit } from "../middleware/rate-limit.middleware";
 import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
@@ -25,7 +26,11 @@ export function authController(db: Db) {
   const users = new UserModel(db.sqlite);
 
   app.get("/login", redirectIfAuthenticated(db), (c) =>
-    view(c, "studio/auth/login", { errors: null, old: {} })
+    view(c, "studio/auth/login", {
+      errors: null,
+      old: {},
+      next: safeNext(c.req.query("next")) ?? "",
+    })
   );
 
   app.post("/login", authLimiter(), redirectIfAuthenticated(db), async (c) => {
@@ -33,17 +38,31 @@ export function authController(db: Db) {
     const username = String(body.username ?? "").trim();
     const password = String(body.password ?? "");
 
+    // Where to land after a successful login (never an off-site URL).
+    const nextTarget = safeNext(body.next) ?? safeNext(c.req.query("next"));
+
     const id = await users.verifyPassword(username, password);
     if (!id) {
       return view(c, "studio/auth/login", {
         errors: ["Invalid username or password."],
         old: { username },
+        next: nextTarget ?? "",
+      });
+    }
+
+    // Suspended accounts cannot sign in (checked after password verify, so the
+    // message never reveals whether a username exists).
+    if (!users.isActive(id)) {
+      return view(c, "studio/auth/login", {
+        errors: ["This account is suspended. Contact an administrator."],
+        old: { username },
+        next: nextTarget ?? "",
       });
     }
 
     await createSession(c, db, id);
     flashSuccess(c, "Welcome back!");
-    return redirect(c, "/studio");
+    return redirect(c, nextTarget ?? "/studio");
   });
 
   app.get("/register", redirectIfAuthenticated(db), (c) =>

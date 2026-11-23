@@ -1,12 +1,28 @@
 import { randomUUID } from "crypto";
 import type { Database } from "bun:sqlite";
 
+export type UserRole = "member" | "admin" | "superadmin";
+
+/** Roles that may open the moderation panel. */
+const PANEL_ROLES: UserRole[] = ["admin", "superadmin"];
+export type UserStatus = "active" | "suspended";
+
 export type PublicUser = {
   id: string;
   username: string;
   full_name: string | null;
   bio: string | null;
   avatar_path: string | null;
+  role: UserRole;
+  status: UserStatus;
+};
+
+/** Row shape for the admin user list (includes moderation columns). */
+export type AdminUserRow = PublicUser & {
+  created_at: string;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+  karya_count: number;
 };
 
 /**
@@ -23,8 +39,16 @@ export class UserModel {
   /** Find full user (incl. password_hash) by username — for login. */
   findByUsername(username: string) {
     return this.db
-      .query("SELECT id, username, password_hash FROM users WHERE username = ?")
-      .get(username) as { id: string; username: string; password_hash: string } | null;
+      .query("SELECT id, username, password_hash, role, status FROM users WHERE username = ?")
+      .get(username) as
+      | {
+          id: string;
+          username: string;
+          password_hash: string;
+          role: UserRole;
+          status: UserStatus;
+        }
+      | null;
   }
 
   /** True if a username is taken, ignoring case ("Admin" matches "admin"). */
@@ -38,14 +62,18 @@ export class UserModel {
   /** Public user data by id (no password). */
   findPublic(id: string): PublicUser | null {
     return this.db
-      .query("SELECT id, username, full_name, bio, avatar_path FROM users WHERE id = ?")
+      .query(
+        "SELECT id, username, full_name, bio, avatar_path, role, status FROM users WHERE id = ?"
+      )
       .get(id) as PublicUser | null;
   }
 
   /** Public user data by username (for profile page). */
   findByUsernamePublic(username: string): PublicUser | null {
     return this.db
-      .query("SELECT id, username, full_name, bio, avatar_path FROM users WHERE username = ?")
+      .query(
+        "SELECT id, username, full_name, bio, avatar_path, role, status FROM users WHERE username = ?"
+      )
       .get(username) as PublicUser | null;
   }
 
@@ -79,6 +107,139 @@ export class UserModel {
       )
       .run(id, username, fullName ?? null, hash);
     return id;
+  }
+
+  // --- admin / moderation ---
+
+  /** Role + status only (cheap lookup for middleware). */
+  findAccess(id: string): { role: UserRole; status: UserStatus } | null {
+    return this.db
+      .query("SELECT role, status FROM users WHERE id = ?")
+      .get(id) as { role: UserRole; status: UserStatus } | null;
+  }
+
+  /** True when the user may open /admin (admin or superadmin). */
+  isAdmin(id: string): boolean {
+    const row = this.findAccess(id);
+    return row !== null && PANEL_ROLES.includes(row.role);
+  }
+
+  /** True only for the highest role — the one allowed to touch other admins. */
+  isSuperAdmin(id: string): boolean {
+    return this.findAccess(id)?.role === "superadmin";
+  }
+
+  /** Role of a user (null when the user does not exist). */
+  roleOf(id: string): UserRole | null {
+    return this.findAccess(id)?.role ?? null;
+  }
+
+  /** True when the user is active (not suspended). */
+  isActive(id: string): boolean {
+    const row = this.findAccess(id);
+    return row?.status === "active";
+  }
+
+  /** Shared WHERE builder for the admin list + count (keeps them in sync). */
+  private adminFilter(filter?: { status?: UserStatus; q?: string }) {
+    const where: string[] = [];
+    const params: string[] = [];
+    if (filter?.status) {
+      where.push("u.status = ?");
+      params.push(filter.status);
+    }
+    if (filter?.q) {
+      where.push("(u.username LIKE ? OR u.full_name LIKE ?)");
+      params.push(`%${filter.q}%`, `%${filter.q}%`);
+    }
+    return { whereSql: where.length ? `WHERE ${where.join(" AND ")}` : "", params };
+  }
+
+  /** Admin list: every user with karya count, newest first. */
+  listForAdmin(filter?: { status?: UserStatus; q?: string }): AdminUserRow[] {
+    const { whereSql, params } = this.adminFilter(filter);
+    return this.db
+      .query(
+        `SELECT u.id, u.username, u.full_name, u.bio, u.avatar_path, u.role, u.status,
+                u.created_at, u.suspended_at, u.suspended_reason,
+                (SELECT COUNT(*) FROM karya k WHERE k.user_id = u.id) AS karya_count
+         FROM users u
+         ${whereSql}
+         ORDER BY u.created_at DESC`
+      )
+      .all(...params) as AdminUserRow[];
+  }
+
+  /** Same as listForAdmin but paginated (admin users table). */
+  listForAdminPage(
+    filter: { status?: UserStatus; q?: string },
+    limit: number,
+    offset: number
+  ): AdminUserRow[] {
+    const { whereSql, params } = this.adminFilter(filter);
+    return this.db
+      .query(
+        `SELECT u.id, u.username, u.full_name, u.bio, u.avatar_path, u.role, u.status,
+                u.created_at, u.suspended_at, u.suspended_reason,
+                (SELECT COUNT(*) FROM karya k WHERE k.user_id = u.id) AS karya_count
+         FROM users u
+         ${whereSql}
+         ORDER BY u.created_at DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset) as AdminUserRow[];
+  }
+
+  /** Total accounts matching the admin filter (for the pager). */
+  countForAdmin(filter?: { status?: UserStatus; q?: string }): number {
+    const { whereSql, params } = this.adminFilter(filter);
+    const row = this.db
+      .query(`SELECT COUNT(*) AS n FROM users u ${whereSql}`)
+      .get(...params) as { n: number } | null;
+    return row?.n ?? 0;
+  }
+
+  /** Admin detail by id (includes moderation columns). */
+  findForAdmin(id: string): AdminUserRow | null {
+    return this.db
+      .query(
+        `SELECT u.id, u.username, u.full_name, u.bio, u.avatar_path, u.role, u.status,
+                u.created_at, u.suspended_at, u.suspended_reason,
+                (SELECT COUNT(*) FROM karya k WHERE k.user_id = u.id) AS karya_count
+         FROM users u WHERE u.id = ?`
+      )
+      .get(id) as AdminUserRow | null;
+  }
+
+  /** Suspend a user: blocks login and hides their published works. */
+  suspend(id: string, reason: string) {
+    this.db
+      .query(
+        "UPDATE users SET status = 'suspended', suspended_at = datetime('now'), suspended_reason = ? WHERE id = ?"
+      )
+      .run(reason || null, id);
+  }
+
+  /** Reactivate a suspended user. */
+  reactivate(id: string) {
+    this.db
+      .query(
+        "UPDATE users SET status = 'active', suspended_at = NULL, suspended_reason = NULL WHERE id = ?"
+      )
+      .run(id);
+  }
+
+  /** Promote to admin or demote to member. */
+  setRole(id: string, role: UserRole) {
+    this.db.query("UPDATE users SET role = ? WHERE id = ?").run(role, id);
+  }
+
+  /** Find a user id by username (CLI helper). */
+  idByUsername(username: string): string | null {
+    const row = this.db
+      .query("SELECT id FROM users WHERE lower(username) = lower(?)")
+      .get(username) as { id: string } | null;
+    return row?.id ?? null;
   }
 
   /** Verify login: return userId if password matches, null otherwise. */

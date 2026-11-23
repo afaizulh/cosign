@@ -1,0 +1,102 @@
+<% layout("/layouts/admin") %>
+<% it.title = "Users — CoSign Admin"; it.active = "users"; %>
+<% const statusUrl = function (s) {
+  const p = new URLSearchParams();
+  if (s) p.set("status", s);
+  if (it.q) p.set("q", it.q);
+  const out = p.toString();
+  return out ? "/admin/users?" + out : "/admin/users";
+}; %>
+
+<div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+  <div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">Users</h1>
+    <p class="text-sm text-slate-500 mt-1">Suspend accounts that break the rules. Suspension hides their works.</p>
+  </div>
+  <form method="get" action="/admin/users" class="flex items-center gap-2">
+    <% if (it.aktif) { %><input type="hidden" name="status" value="<%= it.aktif %>" /><% } %>
+    <div class="relative">
+      <i class="bx bx-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+      <input name="q" value="<%= it.q %>" placeholder="Search username or name…"
+        class="border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-sm w-56 bg-white" />
+    </div>
+    <button type="submit" class="bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep">Search</button>
+  </form>
+</div>
+
+<nav class="flex flex-wrap gap-2 mb-5">
+  <% [["", "All"], ["active", "Active"], ["suspended", "Suspended"]].forEach(function (pair) { %>
+    <a href="<%= statusUrl(pair[0]) %>"
+      class="px-4 py-1.5 rounded-full text-sm font-semibold border transition <%= it.aktif === pair[0] ? 'bg-studio-navy text-white border-studio-navy' : 'bg-white text-slate-600 border-slate-200 hover:border-red-300' %>">
+      <%= pair[1] %>
+    </a>
+  <% }) %>
+</nav>
+
+<% if (it.users.length === 0) { %>
+  <div class="bg-white border border-dashed border-slate-300 rounded-2xl py-14 text-center">
+    <i class="bx bx-group text-3xl text-slate-300"></i>
+    <p class="font-bold text-studio-navy mt-2">No users match this filter.</p>
+    <% if (it.q || it.aktif) { %>
+      <a href="/admin/users" class="inline-flex items-center gap-1.5 mt-3 border border-slate-300 px-4 py-2 rounded-xl text-sm font-semibold text-studio-navy hover:bg-slate-50">
+        <i class="bx bx-reset"></i> Clear filters
+      </a>
+    <% } %>
+  </div>
+<% } else { %>
+  <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-4 py-3 font-semibold">Account</th>
+          <th class="px-4 py-3 font-semibold hidden sm:table-cell">Works</th>
+          <th class="px-4 py-3 font-semibold">Role</th>
+          <th class="px-4 py-3 font-semibold">Status</th>
+          <th class="px-4 py-3 font-semibold text-right">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <% it.users.forEach(function (u) { %>
+          <tr class="hover:bg-slate-50/70">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2.5">
+                <% if (u.avatar_path) { %>
+                  <img src="/uploads/<%= u.avatar_path.replace(/^uploads\//, '') %>" alt="" class="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                <% } else { %>
+                  <span class="w-8 h-8 rounded-full bg-studio-navy text-studio-gold text-xs font-bold flex items-center justify-center"><%= u.username.charAt(0).toUpperCase() %></span>
+                <% } %>
+                <div class="min-w-0">
+                  <a href="/admin/users/<%= u.id %>" class="font-semibold text-studio-navy hover:underline">@<%= u.username %></a>
+                  <p class="text-xs text-slate-400 truncate"><%= u.full_name || "—" %></p>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 hidden sm:table-cell text-slate-500"><%= u.karya_count %></td>
+            <td class="px-4 py-3">
+              <% if (u.role === "superadmin") { %>
+                <span class="text-[11px] font-bold uppercase bg-amber-400 text-studio-navy px-2 py-0.5 rounded-full">super</span>
+              <% } else if (u.role === "admin") { %>
+                <span class="text-[11px] font-bold uppercase bg-studio-navy text-white px-2 py-0.5 rounded-full">admin</span>
+              <% } else { %>
+                <span class="text-[11px] font-bold uppercase bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">member</span>
+              <% } %>
+            </td>
+            <td class="px-4 py-3">
+              <% if (u.status === "suspended") { %>
+                <span class="text-[11px] font-bold uppercase bg-red-100 text-red-700 px-2 py-0.5 rounded-full">suspended</span>
+              <% } else { %>
+                <span class="text-[11px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">active</span>
+              <% } %>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="/admin/users/<%= u.id %>" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-studio-navy bg-white border border-slate-300 no-underline hover:bg-studio-navy hover:text-white hover:border-studio-navy transition-colors">
+                Manage <i class="bx bx-right-arrow-alt text-sm"></i>
+              </a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <%~ include("/partials/admin-pagination", { base: "/admin/users", meta: it.meta, filters: { status: it.aktif, q: it.q } }) %>
+  </div>
+<% } %>

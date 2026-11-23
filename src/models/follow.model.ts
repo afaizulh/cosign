@@ -41,7 +41,7 @@ export class FollowModel {
     return row.n;
   }
 
-  /** Works from everyone the user follows, newest first. */
+  /** Works from active creators the user follows, newest first. */
   feed(userId: string) {
     return this.db
       .query(
@@ -50,7 +50,7 @@ export class FollowModel {
          JOIN karya k ON k.user_id = f.followee_id
          JOIN users u ON u.id = k.user_id
          LEFT JOIN likes l ON l.karya_id = k.id
-         WHERE f.follower_id = ?
+         WHERE f.follower_id = ? AND k.status = 'published' AND u.status = 'active'
          GROUP BY k.id
          ORDER BY k.created_at DESC`
       )

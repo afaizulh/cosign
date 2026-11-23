@@ -3,10 +3,10 @@
 
 <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
   <div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-studio-navy">
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-studio-navy">
       Welcome back, <%= it.user.username %> 👋
     </h1>
-    <p class="text-sm text-slate-500 mt-0.5">Here's what's happening in your studio today.</p>
+    <p class="text-sm text-slate-500 mt-1">Here's what's happening in your studio today.</p>
   </div>
   <a href="/studio/publications"
     class="inline-flex items-center gap-1.5 bg-studio-gold text-studio-navy font-extrabold text-sm px-4 py-2 rounded-xl hover:bg-studio-gold-deep hover:text-white">
@@ -61,7 +61,7 @@
   </section>
 <% } %>
 
-<section class="grid sm:grid-cols-2 gap-4">
+<section class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
   <a href="/studio/publications" class="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-studio-gold flex items-center gap-4">
     <span class="w-12 h-12 rounded-2xl bg-studio-gold-soft text-studio-gold-deep flex items-center justify-center text-2xl group-hover:bg-studio-gold group-hover:text-studio-navy"><i class="bx bx-collection"></i></span>
     <span>

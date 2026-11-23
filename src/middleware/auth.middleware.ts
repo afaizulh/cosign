@@ -5,6 +5,27 @@ import type { Db } from "../db";
 import type { AppEnv } from "../view";
 import { SessionModel, SESSION_TTL_DAYS } from "../models/session.model";
 
+/**
+ * Only allow same-origin relative paths as post-login targets.
+ * Blocks open redirects (`//evil.com`, `https://evil.com`, backslash tricks).
+ */
+export function safeNext(raw: unknown): string | null {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//") || value.startsWith("/\\")) return null;
+  if (value.includes("://")) return null;
+  return value;
+}
+
+/** Login URL that remembers the page the user was trying to open. */
+export function loginUrl(c: Context<AppEnv>): string {
+  const url = new URL(c.req.url);
+  const next = url.pathname + url.search;
+  if (next === "/" || next === "/studio") return "/studio/login";
+  return `/studio/login?next=${encodeURIComponent(next)}`;
+}
+
 /** Cookie `secure` only over HTTPS — http://localhost dev must still work. */
 const COOKIE_SECURE = (env.APP_URL || "").startsWith("https://");
 
@@ -43,17 +64,23 @@ export function destroySession(c: Context<AppEnv>, db: Db) {
 export function requireAuth(db: Db) {
   return async (c: Context<AppEnv>, next: Next) => {
     const userId = getUserId(c, db);
-    if (!userId) return c.redirect("/studio/login", 302);
+    if (!userId) return c.redirect(loginUrl(c), 302);
     c.set("userId", userId);
     await next();
   };
 }
 
-/** Middleware guest: for login/register pages — logged-in users go to /studio. */
+/**
+ * Middleware guest: for login/register pages.
+ * Logged-in users are sent to `?next=` when present, otherwise /studio.
+ */
 export function redirectIfAuthenticated(db: Db) {
   return async (c: Context<AppEnv>, next: Next) => {
     const userId = getUserId(c, db);
-    if (userId) return c.redirect("/studio", 302);
+    if (userId) {
+      const target = safeNext(c.req.query("next")) ?? "/studio";
+      return c.redirect(target, 302);
+    }
     await next();
   };
 }

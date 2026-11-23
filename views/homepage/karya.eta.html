@@ -42,7 +42,7 @@
       <img data-layer="head" src="<%= it.karya.parts.head ? '/uploads/' + it.karya.parts.head.replace(/^uploads\//, '') : '' %>" alt=""
         class="absolute top-4 left-1/2 -translate-x-1/2 w-2/5 object-contain <%= it.karya.parts.head ? '' : 'hidden' %>" />
       <% if (!it.karya.parts.head && !it.karya.parts.body && !it.karya.parts.background) { %>
-        <p class="absolute inset-0 flex items-center justify-center text-sm text-slate-400">No parts yet</p>
+        <%~ include("/partials/placeholder", { seed: String(it.karya.user_id || it.karya.id), label: "No thumbnail" }) %>
       <% } %>
     </div>
 

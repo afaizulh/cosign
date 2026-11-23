@@ -23,9 +23,10 @@ export type KaryaAsset = {
 export class KaryaModel {
   constructor(private db: Database) {}
 
-  /** List all karya (explore), optional kategori filter, search & sort. */
+  /** List published karya from active creators (explore), optional filter/search/sort. */
   list(kategori?: string, q?: string, sort?: string) {
-    const where: string[] = [];
+    // Moderation: taken-down works and suspended authors never hit the explore page.
+    const where: string[] = ["k.status = 'published'", "u.status = 'active'"];
     const params: string[] = [];
     if (kategori) {
       where.push("k.kategori = ?");
@@ -69,6 +70,103 @@ export class KaryaModel {
          ORDER BY k.created_at DESC`
       )
       .all(userId);
+  }
+
+  /** List published karya of one user (public profile page). */
+  byUserPublic(userId: string) {
+    return this.db
+      .query(
+        `SELECT k.*, u.username, COUNT(l.user_id) AS like_count
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         LEFT JOIN likes l ON l.karya_id = k.id
+         WHERE k.user_id = ? AND k.status = 'published'
+         GROUP BY k.id
+         ORDER BY k.created_at DESC`
+      )
+      .all(userId);
+  }
+
+  /** Shared WHERE builder for the admin list + count (keeps them in sync). */
+  private adminFilter(filter?: { status?: string; q?: string }) {
+    const where: string[] = [];
+    const params: string[] = [];
+    if (filter?.status) {
+      where.push("k.status = ?");
+      params.push(filter.status);
+    }
+    if (filter?.q) {
+      where.push("(k.judul LIKE ? OR u.username LIKE ?)");
+      params.push(`%${filter.q}%`, `%${filter.q}%`);
+    }
+    return { whereSql: where.length ? `WHERE ${where.join(" AND ")}` : "", params };
+  }
+
+  /** Admin list: every karya regardless of status, with author + like count. */
+  listForAdmin(filter?: { status?: string; q?: string }) {
+    const { whereSql, params } = this.adminFilter(filter);
+    return this.db
+      .query(
+        `SELECT k.*, u.username, u.status AS author_status,
+                COUNT(l.user_id) AS like_count
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         LEFT JOIN likes l ON l.karya_id = k.id
+         ${whereSql}
+         GROUP BY k.id
+         ORDER BY k.created_at DESC`
+      )
+      .all(...params) as Array<Record<string, unknown>>;
+  }
+
+  /** Same as listForAdmin but paginated (admin works table). */
+  listForAdminPage(filter: { status?: string; q?: string }, limit: number, offset: number) {
+    const { whereSql, params } = this.adminFilter(filter);
+    return this.db
+      .query(
+        `SELECT k.*, u.username, u.status AS author_status,
+                COUNT(l.user_id) AS like_count
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         LEFT JOIN likes l ON l.karya_id = k.id
+         ${whereSql}
+         GROUP BY k.id
+         ORDER BY k.created_at DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset) as Array<Record<string, unknown>>;
+  }
+
+  /** Total rows matching the admin filter (for the pager). */
+  countForAdmin(filter?: { status?: string; q?: string }): number {
+    const { whereSql, params } = this.adminFilter(filter);
+    const row = this.db
+      .query(
+        `SELECT COUNT(*) AS n
+         FROM karya k
+         JOIN users u ON u.id = k.user_id
+         ${whereSql}`
+      )
+      .get(...params) as { n: number } | null;
+    return row?.n ?? 0;
+  }
+
+  /** Soft delete: hide a work from the public site but keep the data. */
+  takedown(id: string, adminId: string, reason: string) {
+    this.db
+      .query(
+        "UPDATE karya SET status = 'taken_down', takedown_reason = ?, takedown_by = ?, takedown_at = datetime('now') WHERE id = ?"
+      )
+      .run(reason || null, adminId, id);
+  }
+
+  /** Undo a takedown. */
+  restore(id: string) {
+    this.db
+      .query(
+        "UPDATE karya SET status = 'published', takedown_reason = NULL, takedown_by = NULL, takedown_at = NULL WHERE id = ?"
+      )
+      .run(id);
   }
 
   /** Find one karya by id. */
@@ -235,6 +333,20 @@ export class KaryaModel {
       )
       .all(...karyaIds) as KaryaPart[];
     for (const p of rows) (map[p.karya_id] ??= []).push(p);
+    return map;
+  }
+
+  /** First (newest) 3D asset per karya in one query, keyed by karya_id. */
+  firstAssetsForMany(karyaIds: string[]): Record<string, KaryaAsset> {
+    const map: Record<string, KaryaAsset> = {};
+    if (karyaIds.length === 0) return map;
+    const placeholders = karyaIds.map(() => "?").join(",");
+    const rows = this.db
+      .query(
+        `SELECT * FROM karya_assets WHERE karya_id IN (${placeholders}) ORDER BY karya_id, created_at DESC, id DESC`
+      )
+      .all(...karyaIds) as KaryaAsset[];
+    for (const a of rows) if (!map[a.karya_id]) map[a.karya_id] = a;
     return map;
   }
 

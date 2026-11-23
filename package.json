@@ -9,7 +9,10 @@
     "build:css": "bunx @tailwindcss/cli -i src/styles/input.css -o public/style.css",
     "start": "bun run src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "admin:grant": "bun run scripts/grant-admin.ts grant",
+    "admin:revoke": "bun run scripts/grant-admin.ts revoke",
+    "superadmin:grant": "bun run scripts/grant-admin.ts superadmin"
   },
   "dependencies": {
     "bun": "^1.4.4",

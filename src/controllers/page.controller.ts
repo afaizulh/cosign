@@ -51,14 +51,15 @@ export function pageController(db: Db) {
     if (!db.sqlite) return c.text("supabase mode not implemented", 501);
     const users = new UserModel(db.sqlite);
     const user = users.findByUsernamePublic(c.req.param("username"));
-    if (!user) {
+    // Suspended accounts are invisible to the public.
+    if (!user || user.status !== "active") {
       flashError(c, "User not found.");
       return redirect(c, "/");
     }
     const karya = new KaryaModel(db.sqlite);
     const follows = new FollowModel(db.sqlite);
     const viewer = c.get("user");
-    const items = withComposition(karya.byUser(user.id), karya);
+    const items = withComposition(karya.byUserPublic(user.id), karya);
     return view(c, "homepage/profil", {
       profil: user,
       karya: items,
@@ -74,7 +75,7 @@ export function pageController(db: Db) {
     if (!db.sqlite) return c.text("supabase mode not implemented", 501);
     const users = new UserModel(db.sqlite);
     const target = users.findByUsernamePublic(c.req.param("username")!);
-    if (!target) {
+    if (!target || target.status !== "active") {
       flashError(c, "User not found.");
       return redirect(c, "/");
     }

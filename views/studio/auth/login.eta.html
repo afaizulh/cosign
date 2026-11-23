@@ -5,11 +5,13 @@
 <p class="text-sm text-slate-300 text-center mt-1 mb-6">Sign in to open your studio.</p>
 <%~ include("/partials/errors", { errors: it.errors }) %>
 <form method="post" action="/studio/login" class="bg-white rounded-2xl p-6 space-y-4 shadow-xl">
+  <% if (it.next) { %><input type="hidden" name="next" value="<%= it.next %>" /><% } %>
   <div>
     <label for="username" class="block text-sm font-medium mb-1">Username</label>
     <div class="relative">
       <i class="bx bx-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
       <input id="username" name="username" required value="<%= it.old.username ?? '' %>" autocomplete="username"
+        placeholder="your-username"
         class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
     </div>
   </div>
@@ -18,6 +20,7 @@
     <div class="relative">
       <i class="bx bx-lock-alt absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
       <input id="password" name="password" type="password" required autocomplete="current-password"
+        placeholder="Your password"
         class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-studio-gold" />
     </div>
   </div>

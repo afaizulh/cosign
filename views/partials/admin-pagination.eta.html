@@ -1,0 +1,77 @@
+<% /*
+  Admin pager. Data:
+    it.base    → path, e.g. "/admin/works"
+    it.meta    → { page, pages, total, perPage, from, to }
+    it.filters → object of query params to preserve, e.g. { status, q }
+*/ %>
+<%
+const url = function (page) {
+  const p = new URLSearchParams();
+  for (const [key, value] of Object.entries(it.filters || {})) {
+    if (value) p.set(key, String(value));
+  }
+  if (page > 1) p.set("page", String(page));
+  const qs = p.toString();
+  return qs ? it.base + "?" + qs : it.base;
+};
+const pages = [];
+const start = Math.max(1, it.meta.page - 2);
+const end = Math.min(it.meta.pages, start + 4);
+for (let i = start; i <= end; i++) pages.push(i);
+%>
+<nav class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-50/70 border-t border-slate-200 text-xs"
+  aria-label="Pagination">
+  <p class="text-slate-500">
+    <% if (it.meta.total === 0) { %>
+      No results
+    <% } else { %>
+      Showing <span class="font-bold text-studio-navy"><%= it.meta.from %>–<%= it.meta.to %></span>
+      of <span class="font-bold text-studio-navy"><%= it.meta.total %></span>
+      · <span class="font-semibold"><%= it.meta.perPage %></span> per page
+    <% } %>
+  </p>
+
+  <% if (it.meta.pages > 1) { %>
+    <div class="flex items-center gap-1">
+      <% if (it.meta.page > 1) { %>
+        <a href="<%= url(it.meta.page - 1) %>" rel="prev"
+          class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-studio-navy hover:border-studio-gold">
+          <i class="bx bx-chevron-left text-base"></i> Prev
+        </a>
+      <% } else { %>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-slate-300 cursor-not-allowed">
+          <i class="bx bx-chevron-left text-base"></i> Prev
+        </span>
+      <% } %>
+
+      <% if (pages[0] > 1) { %>
+        <a href="<%= url(1) %>" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-studio-navy hover:border-studio-gold">1</a>
+        <% if (pages[0] > 2) { %><span class="px-1 text-slate-400">…</span><% } %>
+      <% } %>
+
+      <% pages.forEach(function (p) { %>
+        <% if (p === it.meta.page) { %>
+          <span aria-current="page" class="px-2.5 py-1.5 rounded-lg bg-studio-navy text-white font-bold"><%= p %></span>
+        <% } else { %>
+          <a href="<%= url(p) %>" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-studio-navy hover:border-studio-gold"><%= p %></a>
+        <% } %>
+      <% }) %>
+
+      <% if (pages[pages.length - 1] < it.meta.pages) { %>
+        <% if (pages[pages.length - 1] < it.meta.pages - 1) { %><span class="px-1 text-slate-400">…</span><% } %>
+        <a href="<%= url(it.meta.pages) %>" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-studio-navy hover:border-studio-gold"><%= it.meta.pages %></a>
+      <% } %>
+
+      <% if (it.meta.page < it.meta.pages) { %>
+        <a href="<%= url(it.meta.page + 1) %>" rel="next"
+          class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-studio-navy hover:border-studio-gold">
+          Next <i class="bx bx-chevron-right text-base"></i>
+        </a>
+      <% } else { %>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 font-semibold text-slate-300 cursor-not-allowed">
+          Next <i class="bx bx-chevron-right text-base"></i>
+        </span>
+      <% } %>
+    </div>
+  <% } %>
+</nav>
