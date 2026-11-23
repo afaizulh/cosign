@@ -1,0 +1,44 @@
+<% layout("/layouts/homepage") %>
+<% it.title = "Your feed — CoSign" %>
+
+<!-- Feed header -->
+<section class="relative overflow-hidden rounded-3xl bg-studio-navy text-white px-5 sm:px-8 py-8 mb-8">
+  <span class="pointer-events-none absolute -top-20 -right-10 w-64 h-64 rounded-full bg-studio-gold/20 blur-3xl"></span>
+  <div class="relative flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2">
+        <i class="bx bx-news text-studio-gold"></i> Your feed
+      </h1>
+      <p class="mt-1 text-sm text-slate-300">The latest works from creators you follow.</p>
+    </div>
+    <a href="/" class="inline-flex items-center gap-1.5 bg-white text-studio-navy px-4 py-2 rounded-xl text-sm font-bold hover:bg-studio-gold-soft">
+      <i class="bx bx-compass"></i> Explore works
+    </a>
+  </div>
+</section>
+
+<div class="flex items-center gap-2 mb-4">
+  <h2 class="text-lg font-extrabold text-studio-navy flex items-center gap-2">
+    <i class="bx bx-grid-alt text-xl text-studio-gold-deep"></i> Latest
+    <span class="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full"><%= it.karya.length %></span>
+  </h2>
+</div>
+
+<% if (it.karya.length === 0) { %>
+  <div class="bg-white border border-dashed border-slate-300 rounded-3xl py-16 px-6 text-center">
+    <span class="inline-flex w-14 h-14 rounded-2xl bg-studio-gold-soft text-studio-gold-deep items-center justify-center text-3xl mb-3">
+      <i class="bx bx-user-plus"></i>
+    </span>
+    <p class="font-bold text-studio-navy">Your feed is empty.</p>
+    <p class="text-sm text-slate-500 mt-1">Follow creators to see their newest works here.</p>
+    <a href="/" class="inline-flex items-center gap-1.5 mt-4 bg-studio-navy text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-studio-navy-deep">
+      <i class="bx bx-compass"></i> Find creators
+    </a>
+  </div>
+<% } else { %>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-7">
+    <% it.karya.forEach(function (k) { %>
+      <%~ include("/partials/karya-card", { k: k }) %>
+    <% }) %>
+  </div>
+<% } %>

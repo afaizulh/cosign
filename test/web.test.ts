@@ -740,6 +740,64 @@ describe("Web — public pages", () => {
     });
   });
 
+  test("follow user → feed shows their works; unfollow removes them", async () => {
+    const app = createTestApp();
+    const author = await registerUser(app, "follow-author");
+    const fan = await registerUser(app, "follow-fan");
+
+    const create = await app.request("/studio/publications", {
+      method: "POST",
+      headers: { cookie: author, ...formPostHeaders },
+      body: new URLSearchParams({ judul: "Feed Karya", deskripsi: "", kategori: "design" }).toString(),
+    });
+    const karyaId = create.headers.get("location")!.split("/").pop()!;
+
+    // Guest cannot open the personal feed
+    const guestFeed = await app.request("/feed");
+    expect(guestFeed.status).toBe(302);
+    expect(guestFeed.headers.get("location")).toBe("/studio/login");
+
+    // Fan follows the author
+    const follow = await app.request("/profil/follow-author/follow", {
+      method: "POST",
+      headers: { cookie: fan, ...formHeaders },
+    });
+    expect(follow.status).toBe(302);
+    expect(follow.headers.get("location")).toBe("/profil/follow-author");
+
+    const profil = await (await app.request("/profil/follow-author", { headers: { cookie: fan } })).text();
+    expect(profil).toContain("1 follower");
+    expect(profil).toContain("Following");
+
+    // Personal feed lists works from followed creators only
+    const feed = await (await app.request("/feed", { headers: { cookie: fan } })).text();
+    expect(feed).toContain("Feed Karya");
+
+    const ownFeed = await (await app.request("/feed", { headers: { cookie: author } })).text();
+    expect(ownFeed).not.toContain("Feed Karya");
+
+    // Self-follow is rejected
+    const selfFollow = await app.request("/profil/follow-author/follow", {
+      method: "POST",
+      headers: { cookie: author, ...formHeaders },
+    });
+    expect(selfFollow.status).toBe(302);
+
+    // Unfollow empties the feed again
+    await app.request("/profil/follow-author/follow", {
+      method: "POST",
+      headers: { cookie: fan, ...formHeaders },
+    });
+    const after = await (await app.request("/feed", { headers: { cookie: fan } })).text();
+    expect(after).not.toContain("Feed Karya");
+    expect(after).toContain("Your feed is empty.");
+
+    await app.request(`/studio/karya/${karyaId}/delete`, {
+      method: "POST",
+      headers: { cookie: author, ...formHeaders },
+    });
+  });
+
   test("legacy Indonesian slugs still work (redirect-free normalisation)", async () => {
     const app = createTestApp();
     const cookie = await registerUser(app);

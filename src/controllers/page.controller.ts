@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import type { Db } from "../db";
 import { UserModel } from "../models/user.model";
 import { KaryaModel } from "../models/karya.model";
-import { view, redirect, flashError, type AppEnv } from "../view";
+import { FollowModel } from "../models/follow.model";
+import { requireAuth } from "../middleware/auth.middleware";
+import { view, redirect, flashSuccess, flashError, type AppEnv } from "../view";
 import { withComposition } from "../composition";
 
 /** Fixed list of work categories (used for filters & forms). */
@@ -54,8 +56,47 @@ export function pageController(db: Db) {
       return redirect(c, "/");
     }
     const karya = new KaryaModel(db.sqlite);
+    const follows = new FollowModel(db.sqlite);
+    const viewer = c.get("user");
     const items = withComposition(karya.byUser(user.id), karya);
-    return view(c, "homepage/profil", { profil: user, karya: items });
+    return view(c, "homepage/profil", {
+      profil: user,
+      karya: items,
+      isSelf: viewer?.id === user.id,
+      isFollowing: viewer ? follows.isFollowing(viewer.id, user.id) : false,
+      followerCount: follows.followerCount(user.id),
+      followingCount: follows.followingCount(user.id),
+    });
+  });
+
+  // POST /profil/:username/follow — toggle follow
+  app.post("/profil/:username/follow", requireAuth(db), (c) => {
+    if (!db.sqlite) return c.text("supabase mode not implemented", 501);
+    const users = new UserModel(db.sqlite);
+    const target = users.findByUsernamePublic(c.req.param("username")!);
+    if (!target) {
+      flashError(c, "User not found.");
+      return redirect(c, "/");
+    }
+    const followerId = c.get("userId");
+    if (followerId === target.id) {
+      flashError(c, "You cannot follow yourself.");
+      return redirect(c, `/profil/${target.username}`);
+    }
+    const nowFollowing = new FollowModel(db.sqlite).toggle(followerId, target.id);
+    flashSuccess(
+      c,
+      nowFollowing ? `Now following @${target.username}.` : `Unfollowed @${target.username}.`
+    );
+    return redirect(c, `/profil/${target.username}`);
+  });
+
+  // GET /feed — works from creators the logged-in user follows
+  app.get("/feed", requireAuth(db), (c) => {
+    if (!db.sqlite) return c.text("supabase mode not implemented", 501);
+    const karya = new KaryaModel(db.sqlite);
+    const items = withComposition(new FollowModel(db.sqlite).feed(c.get("userId")), karya);
+    return view(c, "homepage/feed", { karya: items });
   });
 
   return app;

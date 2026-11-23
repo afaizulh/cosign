@@ -64,7 +64,8 @@ cosign/
 │   │   ├── user.model.ts       #   users: register, verifyPassword, profil/avatar
 │   │   ├── session.model.ts    #   sessions: create/find/delete session cookie
 │   │   ├── karya.model.ts      #   karya + karya_parts + likes
-│   │   └── comment.model.ts    #   comments: komentar per karya
+│   │   ├── comment.model.ts    #   comments: komentar per karya
+│   │   └── follow.model.ts     #   follows: graph follow + query feed personal
 │   ├── controllers/            # CONTROLLER — form POST → model → view/redirect
 │   │   ├── auth.controller.ts  #   /studio/login, /studio/register, /studio/logout
 │   │   ├── settings.controller.ts # /studio/settings — profil, bio, avatar, akun
@@ -112,6 +113,8 @@ Build CSS produksi: `bun run build:css` — hasilnya `public/style.css`.
 | POST | `/karya/:id/comments` | tambah komentar | ✓ |
 | POST | `/karya/:id/comments/:cid/delete` | hapus komentar (penulis / pemilik karya) | ✓ |
 | GET | `/profil/:username` | `homepage/profil` — profil publik | - |
+| POST | `/profil/:username/follow` | toggle follow (tidak bisa follow diri sendiri) | ✓ |
+| GET | `/feed` | `homepage/feed` — feed personal (karya dari user yang di-follow) | ✓ |
 | GET | `/studio/login` | `studio/auth/login` | guest |
 | POST | `/studio/login` | login → `/studio` | guest |
 | GET | `/studio/register` | `studio/auth/register` | guest |
@@ -141,7 +144,8 @@ ekstensi `glb|gltf|obj|fbx|stl|usdz`, maksimal **50MB**. Semua file disimpan seb
 `uploads/<uuid>.<ext>`. Kategori part: `head`, `body`, `background`.
 Kategori karya: `design`, `illustration`, `photography`, `motion`, `other`.
 Komentar maks 1000 karakter; hanya penulis komentar atau pemilik karya yang
-bisa menghapusnya.
+bisa menghapusnya. Follow antar user lewat tombol di halaman profil (form POST);
+`/feed` hanya menampilkan karya terbaru dari kreator yang di-follow.
 
 ---
 
@@ -159,6 +163,7 @@ tidak menyentuh `data/app.db`. Cakupan saat ini:
 | `test/session.model.test.ts` | create/find/delete session |
 | `test/user.model.test.ts` | register, verifyPassword, tanpa bocor hash |
 | `test/karya.model.test.ts` | CRUD karya, parts (add/list/find/delete), toggleLike, likeCount |
+| `test/follow.model.test.ts` | toggle follow, follower/following count, feed personal |
 | `test/web.test.ts` | render view, auth flow, buat karya, upload parts (valid/invalid), owner guard, customizer, like, profil, edit profil/avatar, komentar, filter kategori, cleanup file |
 
 CI otomatis menjalankan `bun test` + `bun run build:css` di setiap push/PR ke

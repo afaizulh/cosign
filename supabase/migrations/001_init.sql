@@ -50,3 +50,13 @@ create table if not exists comments (
 );
 
 create index if not exists idx_comments_karya on comments(karya_id, created_at);
+
+create table if not exists follows (
+  follower_id uuid references users(id) on delete cascade,
+  followee_id uuid references users(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+
+create index if not exists idx_follows_followee on follows(followee_id);

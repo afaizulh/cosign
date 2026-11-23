@@ -46,17 +46,18 @@ src/
 ├── index.ts                # entry: server Bun (port 3000). JANGAN taruh logika bisnis di sini
 ├── app.ts                  # createApp(db): middleware (logger, secureHeaders, csrf) + static
 ├── db.ts                   # initDb() (sqlite | supabase) + migrate()
-│                           #   tabel: users, sessions, karya, karya_parts, likes
+│                           #   tabel: users, sessions, karya, karya_parts, likes, follows
 ├── view.ts                 # setup Eta + helper view()/redirect()/flash*. Analog view() Laravel
 ├── composition.ts          # latestParts / partsByCategory / withComposition (layered cards)
 ├── models/                 # MODEL — query SQL. Satu class per tabel/domain
 │   ├── user.model.ts       #   users (auth)
 │   ├── session.model.ts    #   sessions
-│   └── karya.model.ts      #   karya + karya_parts + likes (parts, likeCount)
+│   ├── karya.model.ts      #   karya + karya_parts + likes (parts, likeCount)
+│   └── follow.model.ts     #   follows (toggle, counts, feed personal)
 ├── controllers/            # CONTROLLER — parse form → model → view/redirect
 │   ├── auth.controller.ts  #   /studio/login, /studio/register, /studio/logout
 │   ├── settings.controller.ts # /studio/settings — profil, bio, avatar
-│   ├── page.controller.ts  #   GET / (explore), GET /profil/:username
+│   ├── page.controller.ts  #   GET / (explore), /profil/:username, /feed + follow
 │   └── karya.controller.ts #   karyaAdminController (mounted /studio) +
 │                           #   karyaPublicController (mounted /) — detail/customizer + like
 ├── middleware/
